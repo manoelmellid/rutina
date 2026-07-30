@@ -1,0 +1,60 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border-top: 0.5px solid var(--color-border);
+  text-align: left;
+}
+
+.row:first-child {
+  border-top: none;
+}
+
+.checkbox {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkboxChecked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+  font-size: 13px;
+}
+
+.texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.nombre {
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nombreComprado {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
+.cantidad {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.deleteButton {
+  font-size: 20px;
+  color: var(--color-text-secondary);
+  padding: 4px 6px;
+  flex-shrink: 0;
+}

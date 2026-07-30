@@ -1,0 +1,98 @@
+.search {
+  width: 100%;
+  font-size: 17px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+  margin-bottom: 14px;
+}
+
+.search::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.group {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 17px;
+  border-bottom: 0.5px solid var(--color-border);
+  text-align: left;
+}
+
+.group .row:last-child {
+  border-bottom: none;
+}
+
+.rowSecondary {
+  color: var(--color-text-secondary);
+}
+
+.rowDanger {
+  color: var(--color-danger);
+}
+
+.rowAccent {
+  color: var(--color-accent);
+}
+
+.emptyHint {
+  padding: 20px 4px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.tagsWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-card);
+  border-radius: 999px;
+  padding: 6px 10px 6px 14px;
+  font-size: 14px;
+}
+
+.tagRemove {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.saveButton {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  color: white;
+  background: var(--color-accent);
+  border-radius: var(--radius-card);
+  margin-bottom: 10px;
+}
+
+.backButton {
+  font-size: 15px;
+  color: var(--color-accent);
+  margin: 0 4px 14px;
+}

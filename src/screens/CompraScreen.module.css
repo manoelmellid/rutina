@@ -1,0 +1,57 @@
+.addRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.addInput {
+  flex: 1;
+  font-size: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+}
+
+.addInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.addButton {
+  width: 44px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: white;
+  font-size: 22px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.generateButton {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 20px;
+}
+
+.group {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.emptyHint {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
