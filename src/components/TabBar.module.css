@@ -4,7 +4,7 @@
   right: 0;
   bottom: 0;
   display: flex;
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: 6px;
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   background: rgba(242, 242, 247, 0.78);
