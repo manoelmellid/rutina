@@ -6,18 +6,23 @@ export function DebugViewport() {
 
   useEffect(() => {
     const update = () => {
+      const appHeightVar = getComputedStyle(document.documentElement).getPropertyValue('--app-height');
+      const pageEl = document.querySelector('[data-debug-page]');
+      const tabBarEl = document.querySelector('[data-debug-tabbar]');
+      const pageRect = pageEl?.getBoundingClientRect();
+      const tabRect = tabBarEl?.getBoundingClientRect();
+
       setInfo({
         innerHeight: window.innerHeight,
-        innerWidth: window.innerWidth,
         vvHeight: window.visualViewport?.height ?? 'n/a',
-        vvWidth: window.visualViewport?.width ?? 'n/a',
-        vvOffsetTop: window.visualViewport?.offsetTop ?? 'n/a',
-        docClientHeight: document.documentElement.clientHeight,
         screenHeight: window.screen.height,
-        screenAvailHeight: window.screen.availHeight,
-        dpr: window.devicePixelRatio,
+        appHeightVar: appHeightVar.trim() || 'unset',
         standalone: String((navigator as unknown as { standalone?: boolean }).standalone ?? 'n/a'),
-        displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+        pageTop: pageRect ? pageRect.top.toFixed(0) : 'n/a',
+        pageBottom: pageRect ? pageRect.bottom.toFixed(0) : 'n/a',
+        pageHeight: pageRect ? pageRect.height.toFixed(0) : 'n/a',
+        tabTop: tabRect ? tabRect.top.toFixed(0) : 'n/a',
+        tabBottom: tabRect ? tabRect.bottom.toFixed(0) : 'n/a',
       });
     };
     update();
@@ -39,7 +44,7 @@ export function DebugViewport() {
         left: 0,
         right: 0,
         zIndex: 9999,
-        background: 'rgba(255,0,0,0.85)',
+        background: 'rgba(255,0,0,0.9)',
         color: 'white',
         fontSize: 11,
         fontFamily: 'monospace',
