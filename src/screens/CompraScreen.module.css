@@ -20,12 +20,18 @@
 
 .addButton {
   width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-control);
   background: var(--color-accent);
   color: white;
-  font-size: 22px;
-  font-weight: 600;
   flex-shrink: 0;
+}
+
+.addButton svg {
+  width: 18px;
+  height: 18px;
 }
 
 .generateButton {

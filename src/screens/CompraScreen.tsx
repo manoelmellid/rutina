@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from './CompraScreen.module.css';
 import { CompraItemRow } from '../features/compra/CompraItemRow';
+import { IconPlus } from '../components/icons';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   deleteItemCompra,
@@ -88,8 +89,8 @@ export function CompraScreen() {
             if (e.key === 'Enter') handleAdd();
           }}
         />
-        <button type="button" className={styles.addButton} onClick={handleAdd}>
-          +
+        <button type="button" className={styles.addButton} onClick={handleAdd} aria-label="Añadir">
+          <IconPlus />
         </button>
       </div>
 
