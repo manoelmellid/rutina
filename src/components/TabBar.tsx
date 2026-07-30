@@ -12,7 +12,7 @@ const TABS = [
 
 export function TabBar() {
   return (
-    <nav className={styles.tabBar} data-debug-tabbar>
+    <nav className={styles.tabBar}>
       {TABS.map(({ to, label, Icon, end }) => (
         <NavLink
           key={to}

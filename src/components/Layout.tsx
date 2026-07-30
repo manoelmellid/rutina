@@ -27,7 +27,7 @@ export function Layout() {
   );
 
   return (
-    <div className={styles.page} data-debug-page>
+    <div className={styles.page}>
       <TopBar title={title} action={topRightAction} />
       <main className={`${styles.content} app-content-scroll`}>
         <Outlet context={context} />

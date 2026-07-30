@@ -1,20 +1,17 @@
 /**
- * In iOS standalone PWAs (viewport-fit=cover), .page is fixed-positioned at the
- * true physical top of the screen (behind the status bar), but
- * window.innerHeight / visualViewport.height exclude the status bar's height
- * from their measurement — leaving a gap at the bottom equal to that
- * difference. window.screen.height reflects the true physical height and
- * fixes that gap. In a regular Safari tab there's no such offset, and
- * screen.height would be too tall (it doesn't account for Safari's own
- * chrome), so we keep using innerHeight/visualViewport there instead.
+ * Track the real visible viewport height in a CSS var, so .page can size
+ * itself from it instead of vh/dvh (unreliable across iOS versions/modes).
+ *
+ * We tried using window.screen.height in standalone mode to reach the true
+ * physical screen edge, but elementFromPoint() confirmed the OS reserves the
+ * bottom ~47px (status bar + home indicator) as non-interactive: content
+ * painted there gets covered by a native black layer, clipping the tab bar.
+ * innerHeight/visualViewport.height reflect the actual usable area on every
+ * mode, standalone included, so we always use that instead.
  */
 export function initAppHeight(): void {
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true;
-
   const setHeight = () => {
-    const height = isStandalone ? window.screen.height : (window.visualViewport?.height ?? window.innerHeight);
+    const height = window.visualViewport?.height ?? window.innerHeight;
     document.documentElement.style.setProperty('--app-height', `${height}px`);
   };
 
