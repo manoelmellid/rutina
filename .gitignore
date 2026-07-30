@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Internal notes for Claude Code — never publish
+CLAUDE.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
