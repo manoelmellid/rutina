@@ -1,12 +1,20 @@
 /**
- * iOS standalone PWAs sometimes report window.innerHeight / 100vh / 100dvh as if
- * Safari's chrome still reserved space at the bottom, even though there's no
- * chrome to show. Measuring the real visible height via the Visual Viewport API
- * and writing it to a CSS var sidesteps that unit-level bug entirely.
+ * In iOS standalone PWAs (viewport-fit=cover), .page is fixed-positioned at the
+ * true physical top of the screen (behind the status bar), but
+ * window.innerHeight / visualViewport.height exclude the status bar's height
+ * from their measurement — leaving a gap at the bottom equal to that
+ * difference. window.screen.height reflects the true physical height and
+ * fixes that gap. In a regular Safari tab there's no such offset, and
+ * screen.height would be too tall (it doesn't account for Safari's own
+ * chrome), so we keep using innerHeight/visualViewport there instead.
  */
 export function initAppHeight(): void {
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+
   const setHeight = () => {
-    const height = window.visualViewport?.height ?? window.innerHeight;
+    const height = isStandalone ? window.screen.height : (window.visualViewport?.height ?? window.innerHeight);
     document.documentElement.style.setProperty('--app-height', `${height}px`);
   };
 
