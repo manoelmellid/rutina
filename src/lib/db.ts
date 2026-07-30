@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
-export type TipoComida = 'desayuno' | 'comida' | 'cena';
+export type TipoComida = 'comida' | 'cena';
 export type Especial = 'tupper' | 'fuera';
 
 export interface Plato {

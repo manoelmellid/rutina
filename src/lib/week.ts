@@ -27,9 +27,29 @@ export function getWeekDays(weekOffset: number): Date[] {
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric' });
 const RANGE_FORMATTER = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+const FULL_DAY_FORMATTER = new Intl.DateTimeFormat('es-ES', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'short',
+});
 
 export function formatDayLabel(d: Date): string {
   const label = DAY_FORMATTER.format(d);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Parses a 'YYYY-MM-DD' string as a local date (avoids UTC-parsing day-shift bugs). */
+export function parseISODate(fecha: string): Date {
+  const [y, m, d] = fecha.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** e.g. "viernes 31 oct." — no commas, matches iOS-style date labels. */
+export function formatFullDayLabel(d: Date): string {
+  const parts = FULL_DAY_FORMATTER.formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+  const weekday = get('weekday');
+  const label = `${weekday} ${get('day')} ${get('month')}`;
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 

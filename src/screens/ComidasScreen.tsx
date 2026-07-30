@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
 import { AsignarComidaSheet } from '../features/comidas/AsignarComidaSheet';
+import { NuevoPlatoSheet } from '../features/comidas/NuevoPlatoSheet';
+import { IconPlus } from '../components/icons';
+import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   comidaId,
@@ -28,6 +32,8 @@ export function ComidasScreen() {
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
+  const [nuevoPlatoOpen, setNuevoPlatoOpen] = useState(false);
+  const { setTopRightAction } = useOutletContext<LayoutContext>();
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllComidas()]).then(([p, c]) => {
@@ -36,6 +42,11 @@ export function ComidasScreen() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    setTopRightAction({ icon: <IconPlus />, label: 'Nuevo plato', onClick: () => setNuevoPlatoOpen(true) });
+    return () => setTopRightAction(null);
+  }, [setTopRightAction]);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
@@ -117,6 +128,7 @@ export function ComidasScreen() {
       {selection && (
         <AsignarComidaSheet
           fecha={selection.fecha}
+          tipo={selection.tipo}
           platos={platos}
           currentComida={getComida(selection.fecha, selection.tipo)}
           onClose={() => setSelection(null)}
@@ -124,6 +136,15 @@ export function ComidasScreen() {
           onAssignEspecial={handleAssignEspecial}
           onCreatePlato={handleCreatePlato}
           onClear={handleClear}
+        />
+      )}
+
+      {nuevoPlatoOpen && (
+        <NuevoPlatoSheet
+          onClose={() => setNuevoPlatoOpen(false)}
+          onCreate={async (nombre) => {
+            await handleCreatePlato(nombre);
+          }}
         />
       )}
     </div>

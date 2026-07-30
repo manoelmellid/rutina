@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import styles from './AsignarComidaSheet.module.css';
-import type { Comida, Especial, Plato } from '../../lib/db';
+import { formatFullDayLabel, parseISODate } from '../../lib/week';
+import type { Comida, Especial, Plato, TipoComida } from '../../lib/db';
 
 interface AsignarComidaSheetProps {
   fecha: string;
+  tipo: TipoComida;
   platos: Plato[];
   currentComida: Comida | undefined;
   onClose: () => void;
@@ -17,6 +19,8 @@ interface AsignarComidaSheetProps {
 type Mode = 'list' | 'tupper' | 'fuera';
 
 export function AsignarComidaSheet({
+  fecha,
+  tipo,
   platos,
   currentComida,
   onClose,
@@ -25,6 +29,8 @@ export function AsignarComidaSheet({
   onCreatePlato,
   onClear,
 }: AsignarComidaSheetProps) {
+  const dateLabel = formatFullDayLabel(parseISODate(fecha));
+  const tipoLabel = tipo === 'comida' ? 'comida' : 'cena';
   const [mode, setMode] = useState<Mode>('list');
   const [query, setQuery] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -53,8 +59,9 @@ export function AsignarComidaSheet({
   }
 
   if (mode === 'tupper' || mode === 'fuera') {
+    const especialLabel = mode === 'tupper' ? 'Tupper' : 'Fuera';
     return (
-      <Sheet title={mode === 'tupper' ? 'Tupper' : 'Fuera'} onClose={onClose}>
+      <Sheet title={`${especialLabel} - ${dateLabel}`} onClose={onClose}>
         <button type="button" className={styles.backButton} onClick={() => setMode('list')}>
           ‹ Volver
         </button>
@@ -101,7 +108,7 @@ export function AsignarComidaSheet({
   }
 
   return (
-    <Sheet title="Asignar comida" onClose={onClose}>
+    <Sheet title={`Asignar ${tipoLabel} - ${dateLabel}`} onClose={onClose}>
       <input
         className={styles.search}
         placeholder="Buscar o crear plato…"

@@ -1,23 +1,26 @@
+import type { ReactNode } from 'react';
 import styles from './TopBar.module.css';
-import { IconGear } from './icons';
+
+export interface TopBarAction {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}
 
 interface TopBarProps {
   title: string;
-  onOpenSettings: () => void;
+  action: TopBarAction | null;
 }
 
-export function TopBar({ title, onOpenSettings }: TopBarProps) {
+export function TopBar({ title, action }: TopBarProps) {
   return (
     <header className={styles.topBar}>
       <h1 className={styles.title}>{title}</h1>
-      <button
-        type="button"
-        className={styles.gearButton}
-        onClick={onOpenSettings}
-        aria-label="Ajustes"
-      >
-        <IconGear />
-      </button>
+      {action && (
+        <button type="button" className={styles.gearButton} onClick={action.onClick} aria-label={action.label}>
+          {action.icon}
+        </button>
+      )}
     </header>
   );
 }

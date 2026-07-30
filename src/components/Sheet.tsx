@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import styles from './Sheet.module.css';
 
 interface SheetProps {
@@ -8,6 +8,15 @@ interface SheetProps {
 }
 
 export function Sheet({ title, onClose, children }: SheetProps) {
+  useEffect(() => {
+    const content = document.querySelector<HTMLElement>('.app-content-scroll');
+    const previous = content?.style.overflow;
+    if (content) content.style.overflow = 'hidden';
+    return () => {
+      if (content) content.style.overflow = previous ?? '';
+    };
+  }, []);
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>

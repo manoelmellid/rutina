@@ -3,7 +3,6 @@ import { formatDayLabel, isSameDate } from '../../lib/week';
 import type { Comida, TipoComida } from '../../lib/db';
 
 const TIPOS: { tipo: TipoComida; label: string }[] = [
-  { tipo: 'desayuno', label: 'Desayuno' },
   { tipo: 'comida', label: 'Comida' },
   { tipo: 'cena', label: 'Cena' },
 ];

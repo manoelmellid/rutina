@@ -58,6 +58,14 @@ export function IconGym({ className }: IconProps) {
   );
 }
 
+export function IconPlus({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...common}>
+      <path d="M12 5v14M5 12h14" strokeWidth={2} />
+    </svg>
+  );
+}
+
 export function IconGear({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...common}>
