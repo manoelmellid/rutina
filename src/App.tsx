@@ -5,10 +5,12 @@ import { ComidasScreen } from './screens/ComidasScreen';
 import { CompraScreen } from './screens/CompraScreen';
 import { FinanzasScreen } from './screens/FinanzasScreen';
 import { GymScreen } from './screens/GymScreen';
+import { DebugViewport } from './components/DebugViewport';
 
 function App() {
   return (
     <BrowserRouter>
+      <DebugViewport />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HoyScreen />} />
