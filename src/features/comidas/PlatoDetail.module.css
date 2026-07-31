@@ -1,0 +1,89 @@
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 4px 4px 8px;
+}
+
+.ingredienteList {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.ingredienteRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+.ingredienteList .ingredienteRow:last-child {
+  border-bottom: none;
+}
+
+.ingredienteNombre {
+  flex: 1.4;
+  min-width: 0;
+  text-align: left;
+  font-size: 16px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renameInput {
+  flex: 1.4;
+  min-width: 0;
+  font-size: 16px;
+  color: var(--color-text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-accent);
+}
+
+.cantidadInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: none;
+}
+
+.cantidadInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.removeButton {
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.notas {
+  width: 100%;
+  min-height: 90px;
+  font-size: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 16px;
+}
+
+.notas::placeholder {
+  color: var(--color-text-secondary);
+}

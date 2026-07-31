@@ -3,10 +3,21 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 export type TipoComida = 'comida' | 'cena';
 export type Especial = 'tupper' | 'fuera';
 
+/** Canonical ingredient catalog entry — shared across platos so Compra can later aggregate by id. */
+export interface Ingrediente {
+  id: string;
+  nombre: string;
+}
+
+export interface PlatoIngrediente {
+  ingredienteId: string;
+  cantidad: string;
+}
+
 export interface Plato {
   id: string;
   nombre: string;
-  ingredientes: string[];
+  ingredientes: PlatoIngrediente[];
   notas: string;
 }
 
@@ -43,10 +54,14 @@ interface RutinaDB extends DBSchema {
     key: string;
     value: ItemCompra;
   };
+  ingredientes: {
+    key: string;
+    value: Ingrediente;
+  };
 }
 
 const DB_NAME = 'rutina-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<RutinaDB>> | null = null;
 
@@ -63,6 +78,9 @@ export function getDB(): Promise<IDBPDatabase<RutinaDB>> {
         }
         if (!db.objectStoreNames.contains('listaCompra')) {
           db.createObjectStore('listaCompra', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('ingredientes')) {
+          db.createObjectStore('ingredientes', { keyPath: 'id' });
         }
       },
     });
@@ -95,6 +113,20 @@ export async function savePlato(plato: Plato): Promise<void> {
 export async function deletePlato(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('platos', id);
+}
+
+// ---------------------------------------------------------------------------
+// Ingredientes (catálogo compartido, referenciado por Plato.ingredientes)
+// ---------------------------------------------------------------------------
+
+export async function getAllIngredientes(): Promise<Ingrediente[]> {
+  const db = await getDB();
+  return db.getAll('ingredientes');
+}
+
+export async function saveIngrediente(ingrediente: Ingrediente): Promise<void> {
+  const db = await getDB();
+  await db.put('ingredientes', ingrediente);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,5 +183,6 @@ export async function clearAllData(): Promise<void> {
     db.clear('platos'),
     db.clear('comidas'),
     db.clear('listaCompra'),
+    db.clear('ingredientes'),
   ]);
 }
