@@ -7,7 +7,6 @@ interface PlatoDetailProps {
   plato: Plato;
   ingredientes: Ingrediente[];
   usageCount: number;
-  onBack: () => void;
   onSave: (updated: Plato) => Promise<void>;
   onDelete: () => Promise<void>;
   onCreateIngrediente: (nombre: string) => Promise<string>;
@@ -18,7 +17,6 @@ export function PlatoDetail({
   plato,
   ingredientes,
   usageCount,
-  onBack,
   onSave,
   onDelete,
   onCreateIngrediente,
@@ -87,12 +85,6 @@ export function PlatoDetail({
 
   return (
     <div>
-      <button type="button" className={sharedStyles.backButton} onClick={onBack}>
-        ‹ Platos
-      </button>
-
-      <h2 className={styles.heading}>{plato.nombre}</h2>
-
       <input
         className={sharedStyles.search}
         placeholder="Nombre del plato…"

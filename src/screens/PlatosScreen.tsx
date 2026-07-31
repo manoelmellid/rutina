@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { PlatoDetail } from '../features/comidas/PlatoDetail';
 import sharedStyles from '../features/comidas/AsignarComidaSheet.module.css';
+import type { LayoutContext } from '../lib/layoutContext';
 import {
   deletePlato,
   getAllComidas,
@@ -22,6 +23,8 @@ export function PlatosScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
+  const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas()]).then(([p, i, c]) => {
@@ -31,6 +34,22 @@ export function PlatosScreen() {
       setLoading(false);
     });
   }, []);
+
+  const selectedPlato = platos.find((p) => p.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (selectedPlato) {
+      setTitle(selectedPlato.nombre);
+      setTopLeftBack({ label: 'Platos', onClick: () => setSelectedId(null) });
+    } else {
+      setTitle(null);
+      setTopLeftBack({ label: 'Comidas', onClick: () => navigate('/comidas') });
+    }
+    return () => {
+      setTitle(null);
+      setTopLeftBack(null);
+    };
+  }, [selectedPlato, setTitle, setTopLeftBack, navigate]);
 
   const filtered = useMemo(() => {
     const sorted = [...platos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -76,8 +95,6 @@ export function PlatosScreen() {
     setIngredientes((prev) => prev.map((i) => (i.id === id ? ingrediente : i)));
   }
 
-  const selectedPlato = platos.find((p) => p.id === selectedId) ?? null;
-
   if (loading) return null;
 
   if (selectedPlato) {
@@ -86,7 +103,6 @@ export function PlatosScreen() {
         plato={selectedPlato}
         ingredientes={ingredientes}
         usageCount={comidas.filter((c) => c.platoId === selectedPlato.id).length}
-        onBack={() => setSelectedId(null)}
         onSave={handleUpdatePlato}
         onDelete={() => handleDeletePlato(selectedPlato.id)}
         onCreateIngrediente={handleCreateIngrediente}
@@ -97,10 +113,6 @@ export function PlatosScreen() {
 
   return (
     <div>
-      <Link to="/comidas" className={sharedStyles.backButton}>
-        ‹ Comidas
-      </Link>
-
       <input
         className={sharedStyles.search}
         placeholder="Buscar o crear plato…"
