@@ -9,6 +9,7 @@ import type { LayoutContext } from '../lib/layoutContext';
 const TITLES: Record<string, string> = {
   '/': 'Hoy',
   '/comidas': 'Comidas',
+  '/comidas/platos': 'Platos',
   '/compra': 'Compra',
   '/finanzas': 'Finanzas',
   '/gym': 'Gym',

@@ -1,26 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
 import { AsignarComidaSheet } from '../features/comidas/AsignarComidaSheet';
-import { PlatosSheet } from '../features/comidas/PlatosSheet';
 import { IconPlus } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   comidaId,
-  deletePlato,
   getAllComidas,
-  getAllIngredientes,
   getAllPlatos,
   newId,
   savePlato,
-  saveIngrediente,
   setComida,
   clearComida,
   type Comida,
   type Especial,
-  type Ingrediente,
   type Plato,
   type TipoComida,
 } from '../lib/db';
@@ -34,25 +29,23 @@ export function ComidasScreen() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
-  const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
-  const [platosSheetOpen, setPlatosSheetOpen] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    Promise.all([getAllPlatos(), getAllComidas(), getAllIngredientes()]).then(([p, c, i]) => {
+    Promise.all([getAllPlatos(), getAllComidas()]).then(([p, c]) => {
       setPlatos(p);
       setComidas(c);
-      setIngredientes(i);
       setLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    setTopRightAction({ icon: <IconPlus />, label: 'Platos', onClick: () => setPlatosSheetOpen(true) });
+    setTopRightAction({ icon: <IconPlus />, label: 'Platos', onClick: () => navigate('/comidas/platos') });
     return () => setTopRightAction(null);
-  }, [setTopRightAction]);
+  }, [setTopRightAction, navigate]);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
@@ -73,29 +66,6 @@ export function ComidasScreen() {
     await savePlato(plato);
     setPlatos((prev) => [...prev, plato]);
     return plato.id;
-  }
-
-  async function handleUpdatePlato(plato: Plato) {
-    await savePlato(plato);
-    setPlatos((prev) => prev.map((p) => (p.id === plato.id ? plato : p)));
-  }
-
-  async function handleDeletePlato(id: string) {
-    await deletePlato(id);
-    setPlatos((prev) => prev.filter((p) => p.id !== id));
-  }
-
-  async function handleCreateIngrediente(nombre: string): Promise<string> {
-    const ingrediente: Ingrediente = { id: newId(), nombre };
-    await saveIngrediente(ingrediente);
-    setIngredientes((prev) => [...prev, ingrediente]);
-    return ingrediente.id;
-  }
-
-  async function handleRenameIngrediente(id: string, nombre: string) {
-    const ingrediente: Ingrediente = { id, nombre };
-    await saveIngrediente(ingrediente);
-    setIngredientes((prev) => prev.map((i) => (i.id === id ? ingrediente : i)));
   }
 
   async function handleAssignPlato(platoId: string) {
@@ -165,20 +135,6 @@ export function ComidasScreen() {
           onAssignEspecial={handleAssignEspecial}
           onCreatePlato={handleCreatePlato}
           onClear={handleClear}
-        />
-      )}
-
-      {platosSheetOpen && (
-        <PlatosSheet
-          platos={platos}
-          ingredientes={ingredientes}
-          comidas={comidas}
-          onClose={() => setPlatosSheetOpen(false)}
-          onCreatePlato={handleCreatePlato}
-          onUpdatePlato={handleUpdatePlato}
-          onDeletePlato={handleDeletePlato}
-          onCreateIngrediente={handleCreateIngrediente}
-          onRenameIngrediente={handleRenameIngrediente}
         />
       )}
     </div>

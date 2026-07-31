@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Sheet } from '../../components/Sheet';
 import sharedStyles from './AsignarComidaSheet.module.css';
 import styles from './PlatoDetail.module.css';
 import type { Ingrediente, Plato, PlatoIngrediente } from '../../lib/db';
@@ -9,7 +8,6 @@ interface PlatoDetailProps {
   ingredientes: Ingrediente[];
   usageCount: number;
   onBack: () => void;
-  onClose: () => void;
   onSave: (updated: Plato) => Promise<void>;
   onDelete: () => Promise<void>;
   onCreateIngrediente: (nombre: string) => Promise<string>;
@@ -21,7 +19,6 @@ export function PlatoDetail({
   ingredientes,
   usageCount,
   onBack,
-  onClose,
   onSave,
   onDelete,
   onCreateIngrediente,
@@ -89,10 +86,12 @@ export function PlatoDetail({
   }
 
   return (
-    <Sheet title={plato.nombre} onClose={onClose}>
+    <div>
       <button type="button" className={sharedStyles.backButton} onClick={onBack}>
-        ‹ Volver
+        ‹ Platos
       </button>
+
+      <h2 className={styles.heading}>{plato.nombre}</h2>
 
       <input
         className={sharedStyles.search}
@@ -212,6 +211,6 @@ export function PlatoDetail({
             : 'Eliminar plato'}
         </button>
       </div>
-    </Sheet>
+    </div>
   );
 }
