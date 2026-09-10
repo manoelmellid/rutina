@@ -1,0 +1,25 @@
+.control {
+  display: flex;
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--color-card);
+}
+
+.segment {
+  flex: 1;
+  padding: 9px 8px;
+  font-size: 15px;
+  text-align: center;
+  color: var(--color-text);
+  border-left: 0.5px solid var(--color-border);
+}
+
+.segment:first-child {
+  border-left: none;
+}
+
+.segmentActive {
+  background: var(--color-accent);
+  color: #fff;
+}
