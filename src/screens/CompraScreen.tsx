@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './CompraScreen.module.css';
 import { CompraItemRow } from '../features/compra/CompraItemRow';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { IconPlus, IconCarta, IconIngredientes } from '../components/icons';
+import { IconPlus, IconDespensa, IconIngredientes } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
@@ -34,7 +34,7 @@ export function CompraScreen() {
   useEffect(() => {
     setTopRightAction([
       {
-        icon: <IconCarta />,
+        icon: <IconDespensa />,
         label: 'Despensa',
         onClick: () => navigate('/compra/despensa'),
       },
