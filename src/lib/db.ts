@@ -1,24 +1,50 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import {
+  CATEGORIAS_SEED,
+  CATEGORIA_FALLBACK_ID,
+  PREFERENCIAS_DEFAULT,
+  normalizeIngrediente,
+  normalizePlato,
+} from './migrations';
 
 export type TipoComida = 'comida' | 'cena';
 export type Especial = 'tupper' | 'fuera';
 
-/** Canonical ingredient catalog entry — shared across platos so Compra can later aggregate by id. */
+/** Which meal slots a plato can fill. Distinct from `Comida.tipo` (no 'ambas'). */
+export type PlatoTipo = 'comida' | 'cena' | 'ambas';
+
+/** Base unit a quantity of an ingrediente is stored in. */
+export type Unidad = 'g' | 'ml' | 'ud';
+
+export type AlcanceGenerador = 'semanaEnVista' | 'diasAdelante';
+
+/** "General" characteristic of a plato (Pasta, Carne, Pescado…). Editable from Ajustes. */
+export interface Categoria {
+  id: string; // slug for seeded rows, newId() for user-created
+  nombre: string;
+}
+
+/** Canonical ingredient catalog entry — shared across platos, referenced by id. */
 export interface Ingrediente {
   id: string;
   nombre: string;
+  unidad: Unidad; // required, fixed once chosen
+  tamanoPaquete: number | null; // package size in the base unit; null = a granel (deli/butcher)
+  diasAbierto: number | null; // shelf life (days) once opened; null = no expiry tracking
 }
 
 export interface PlatoIngrediente {
   ingredienteId: string;
-  cantidad: string;
+  cantidad: number; // in the referenced ingrediente's base unit
 }
 
 export interface Plato {
   id: string;
   nombre: string;
   ingredientes: PlatoIngrediente[];
-  notas: string;
+  notas: string; // free text — this is the "elaboración"
+  categoriaIds: string[]; // stackable; [] = sin categoría. Stored + editable, no consumer yet.
+  tipo: PlatoTipo;
 }
 
 /** One row per (fecha, tipo) slot. `id` is the deterministic key `${fecha}__${tipo}`. */
@@ -40,6 +66,28 @@ export interface ItemCompra {
   origenComidaId?: string;
 }
 
+/**
+ * PROVISIONAL — the store is created empty in this version so a later DB_VERSION
+ * bump isn't needed when the pantry phase lands. No UI reads it yet; the shape
+ * may still change before then.
+ */
+export interface DespensaEntry {
+  id: string;
+  ingredienteId: string;
+  cantidad: number; // base unit
+  abiertoEl: string | null; // ISO date the current package was opened, or null
+  caducidad: string | null; // ISO date, or null
+}
+
+/** Single-row store; key is always 'main'. */
+export interface Preferencias {
+  id: 'main';
+  semanasAntiRepeticion: number; // 0 = off
+  alcanceGenerador: AlcanceGenerador;
+  alcanceDiaFin: number; // Date.getDay() convention (0 = domingo)
+  alcanceDiasAdelante: number; // used when alcanceGenerador === 'diasAdelante'
+}
+
 interface RutinaDB extends DBSchema {
   platos: {
     key: string;
@@ -58,17 +106,31 @@ interface RutinaDB extends DBSchema {
     key: string;
     value: Ingrediente;
   };
+  categorias: {
+    key: string;
+    value: Categoria;
+  };
+  despensa: {
+    key: string;
+    value: DespensaEntry;
+    indexes: { 'by-ingrediente': string };
+  };
+  preferencias: {
+    key: string;
+    value: Preferencias;
+  };
 }
 
 const DB_NAME = 'rutina-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<RutinaDB>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<RutinaDB>> {
   if (!dbPromise) {
     dbPromise = openDB<RutinaDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      async upgrade(db, oldVersion, _newVersion, tx) {
+        // v1 / v2 stores (still guarded, additive)
         if (!db.objectStoreNames.contains('platos')) {
           db.createObjectStore('platos', { keyPath: 'id' });
         }
@@ -81,6 +143,29 @@ export function getDB(): Promise<IDBPDatabase<RutinaDB>> {
         }
         if (!db.objectStoreNames.contains('ingredientes')) {
           db.createObjectStore('ingredientes', { keyPath: 'id' });
+        }
+
+        // v3 stores
+        if (!db.objectStoreNames.contains('categorias')) {
+          const store = db.createObjectStore('categorias', { keyPath: 'id' });
+          for (const c of CATEGORIAS_SEED) await store.put(c);
+        }
+        if (!db.objectStoreNames.contains('despensa')) {
+          const store = db.createObjectStore('despensa', { keyPath: 'id' });
+          store.createIndex('by-ingrediente', 'ingredienteId');
+        }
+        if (!db.objectStoreNames.contains('preferencias')) {
+          db.createObjectStore('preferencias', { keyPath: 'id' });
+        }
+
+        // v3 field backfill on existing rows (skips fresh installs, where oldVersion === 0)
+        if (oldVersion > 0 && oldVersion < 3) {
+          for await (const cursor of tx.objectStore('platos')) {
+            await cursor.update(normalizePlato(cursor.value));
+          }
+          for await (const cursor of tx.objectStore('ingredientes')) {
+            await cursor.update(normalizeIngrediente(cursor.value));
+          }
         }
       },
     });
@@ -107,7 +192,7 @@ export async function getAllPlatos(): Promise<Plato[]> {
 
 export async function savePlato(plato: Plato): Promise<void> {
   const db = await getDB();
-  await db.put('platos', plato);
+  await db.put('platos', normalizePlato(plato));
 }
 
 export async function deletePlato(id: string): Promise<void> {
@@ -126,7 +211,109 @@ export async function getAllIngredientes(): Promise<Ingrediente[]> {
 
 export async function saveIngrediente(ingrediente: Ingrediente): Promise<void> {
   const db = await getDB();
-  await db.put('ingredientes', ingrediente);
+  await db.put('ingredientes', normalizeIngrediente(ingrediente));
+}
+
+/**
+ * Deletes from `ingredientes` only. `PlatoIngrediente` rows keep the dangling id —
+ * the UI renders '(eliminado)' via the existing `ing?.nombre ?? '(eliminado)'` fallback.
+ * No cascade, consistent with `deletePlato`.
+ */
+export async function deleteIngrediente(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('ingredientes', id);
+}
+
+export async function countPlatosConIngrediente(id: string): Promise<number> {
+  const platos = await getAllPlatos();
+  return platos.filter((p) => p.ingredientes.some((pi) => pi.ingredienteId === id)).length;
+}
+
+// ---------------------------------------------------------------------------
+// Categorías
+// ---------------------------------------------------------------------------
+
+export async function getAllCategorias(): Promise<Categoria[]> {
+  const db = await getDB();
+  return db.getAll('categorias');
+}
+
+/** Create or rename (put by id). */
+export async function saveCategoria(categoria: Categoria): Promise<void> {
+  const db = await getDB();
+  await db.put('categorias', categoria);
+}
+
+/** Low-level delete. Throws for the fallback id. Callers must use `mergeCategoria` when in use. */
+export async function deleteCategoria(id: string): Promise<void> {
+  if (id === CATEGORIA_FALLBACK_ID) {
+    throw new Error('No se puede eliminar la categoría de reserva');
+  }
+  const db = await getDB();
+  await db.delete('categorias', id);
+}
+
+export async function countPlatosConCategoria(id: string): Promise<number> {
+  const platos = await getAllPlatos();
+  return platos.filter((p) => p.categoriaIds.includes(id)).length;
+}
+
+/**
+ * Reassigns every `Plato.categoriaIds` entry `fromId` → `toId` (deduped), then deletes `fromId`.
+ * Single readwrite transaction over ['platos', 'categorias'].
+ */
+export async function mergeCategoria(fromId: string, toId: string): Promise<void> {
+  if (fromId === CATEGORIA_FALLBACK_ID) {
+    throw new Error('No se puede eliminar la categoría de reserva');
+  }
+  if (fromId === toId) return;
+  const db = await getDB();
+  const tx = db.transaction(['platos', 'categorias'], 'readwrite');
+  for await (const cursor of tx.objectStore('platos')) {
+    const p = cursor.value;
+    if (p.categoriaIds.includes(fromId)) {
+      const next = Array.from(
+        new Set(p.categoriaIds.map((c) => (c === fromId ? toId : c))),
+      );
+      await cursor.update({ ...p, categoriaIds: next });
+    }
+  }
+  await tx.objectStore('categorias').delete(fromId);
+  await tx.done;
+}
+
+// ---------------------------------------------------------------------------
+// Preferencias (fila única 'main')
+// ---------------------------------------------------------------------------
+
+export async function getPreferencias(): Promise<Preferencias> {
+  const db = await getDB();
+  const row = await db.get('preferencias', 'main');
+  return { ...PREFERENCIAS_DEFAULT, ...(row ?? {}), id: 'main' };
+}
+
+export async function setPreferencias(p: Preferencias): Promise<void> {
+  const db = await getDB();
+  await db.put('preferencias', { ...PREFERENCIAS_DEFAULT, ...p, id: 'main' });
+}
+
+// ---------------------------------------------------------------------------
+// Despensa (stubs — sin consumidores todavía)
+// ---------------------------------------------------------------------------
+
+export async function getDespensa(): Promise<DespensaEntry[]> {
+  const db = await getDB();
+  return db.getAll('despensa');
+}
+
+export async function saveDespensaEntry(entry: DespensaEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('despensa', entry);
+}
+
+export async function deleteDespensaEntry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('despensa', id);
 }
 
 // ---------------------------------------------------------------------------
@@ -184,5 +371,12 @@ export async function clearAllData(): Promise<void> {
     db.clear('comidas'),
     db.clear('listaCompra'),
     db.clear('ingredientes'),
+    db.clear('despensa'),
+    db.clear('preferencias'),
+    db.clear('categorias'),
   ]);
+  // Re-seed the category catalog — losing it would break PlatoDetail/Ajustes until reload.
+  const tx = db.transaction('categorias', 'readwrite');
+  for (const c of CATEGORIAS_SEED) await tx.store.put(c);
+  await tx.done;
 }
