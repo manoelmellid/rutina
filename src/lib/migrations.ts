@@ -1,4 +1,12 @@
-import type { Categoria, Ingrediente, Plato, PlatoTipo, Preferencias, Unidad } from './db';
+import type {
+  Categoria,
+  DespensaEntry,
+  Ingrediente,
+  Plato,
+  PlatoTipo,
+  Preferencias,
+  Unidad,
+} from './db';
 
 /** Fallback category — used as a read-time default and protected from deletion. */
 export const CATEGORIA_FALLBACK_ID = 'otros';
@@ -48,6 +56,22 @@ export function normalizeIngrediente(raw: Partial<Ingrediente> & { id: string })
       typeof raw.tamanoPaquete === 'number' && raw.tamanoPaquete > 0 ? raw.tamanoPaquete : null,
     diasAbierto:
       typeof raw.diasAbierto === 'number' && raw.diasAbierto > 0 ? raw.diasAbierto : null,
+  };
+}
+
+/**
+ * Backfills a despensa row to the current shape. Shared by `getDespensa()` and
+ * `importBackup()`. Drops the legacy `caducidad` field (now derived from the
+ * ingrediente, not stored).
+ */
+export function normalizeDespensaEntry(
+  raw: Partial<DespensaEntry> & { id: string },
+): DespensaEntry {
+  return {
+    id: raw.id,
+    ingredienteId: String(raw.ingredienteId ?? ''),
+    cantidad: toNumberOrZero(raw.cantidad),
+    abiertoEl: typeof raw.abiertoEl === 'string' && raw.abiertoEl ? raw.abiertoEl : null,
   };
 }
 

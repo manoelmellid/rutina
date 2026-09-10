@@ -3,6 +3,7 @@ import {
   CATEGORIAS_SEED,
   CATEGORIA_FALLBACK_ID,
   PREFERENCIAS_DEFAULT,
+  normalizeDespensaEntry,
   normalizeIngrediente,
   normalizePlato,
 } from './migrations';
@@ -67,16 +68,16 @@ export interface ItemCompra {
 }
 
 /**
- * PROVISIONAL — the store is created empty in this version so a later DB_VERSION
- * bump isn't needed when the pantry phase lands. No UI reads it yet; the shape
- * may still change before then.
+ * Un agregado de un ingrediente en un estado. Modelo de 2 lotes: como mucho una
+ * entrada "sin abrir" y una "abierta" por ingrediente (`addToDespensa` fusiona).
+ * La caducidad-una-vez-abierto no se guarda aquí: vive en `Ingrediente.diasAbierto`
+ * y se deriva de `abiertoEl` cuando la Fase 6 la necesite.
  */
 export interface DespensaEntry {
   id: string;
   ingredienteId: string;
-  cantidad: number; // base unit
-  abiertoEl: string | null; // ISO date the current package was opened, or null
-  caducidad: string | null; // ISO date, or null
+  cantidad: number; // en la unidad base del ingrediente
+  abiertoEl: string | null; // fecha ISO en que se abrió, o null = sin abrir
 }
 
 /** Single-row store; key is always 'main'. */
@@ -306,12 +307,13 @@ export async function setPreferencias(p: Preferencias): Promise<void> {
 
 export async function getDespensa(): Promise<DespensaEntry[]> {
   const db = await getDB();
-  return db.getAll('despensa');
+  const rows = await db.getAll('despensa');
+  return rows.map(normalizeDespensaEntry);
 }
 
 export async function saveDespensaEntry(entry: DespensaEntry): Promise<void> {
   const db = await getDB();
-  await db.put('despensa', entry);
+  await db.put('despensa', normalizeDespensaEntry(entry));
 }
 
 export async function deleteDespensaEntry(id: string): Promise<void> {
@@ -342,7 +344,6 @@ export async function addToDespensa(
       ingredienteId,
       cantidad,
       abiertoEl: abierto ? toISODateString(new Date()) : null,
-      caducidad: null,
     });
   }
   await tx.done;

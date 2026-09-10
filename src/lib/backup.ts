@@ -11,6 +11,7 @@ import {
 import {
   CATEGORIAS_SEED,
   PREFERENCIAS_DEFAULT,
+  normalizeDespensaEntry,
   normalizeIngrediente,
   normalizePlato,
 } from './migrations';
@@ -89,7 +90,7 @@ export async function importBackup(file: File): Promise<void> {
     await tx.objectStore('listaCompra').put(item);
   }
   for (const entry of data.despensa ?? []) {
-    await tx.objectStore('despensa').put(entry);
+    await tx.objectStore('despensa').put(normalizeDespensaEntry(entry));
   }
 
   const categorias = data.categorias?.length ? data.categorias : CATEGORIAS_SEED;
