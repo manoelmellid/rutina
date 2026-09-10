@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import sharedStyles from './AsignarComidaSheet.module.css';
+import sharedStyles from './AsignarComidaPanel.module.css';
 import styles from './PlatoDetail.module.css';
 import type { Ingrediente, Plato, PlatoIngrediente } from '../../lib/db';
 

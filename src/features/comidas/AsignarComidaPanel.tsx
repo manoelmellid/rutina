@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { Sheet } from '../../components/Sheet';
-import styles from './AsignarComidaSheet.module.css';
+import { useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import styles from './AsignarComidaPanel.module.css';
 import { formatFullDayLabel, parseISODate } from '../../lib/week';
+import type { LayoutContext } from '../../lib/layoutContext';
 import type { Comida, Especial, Plato, TipoComida } from '../../lib/db';
 
-interface AsignarComidaSheetProps {
+interface AsignarComidaPanelProps {
   fecha: string;
   tipo: TipoComida;
   platos: Plato[];
@@ -18,7 +19,7 @@ interface AsignarComidaSheetProps {
 
 type Mode = 'list' | 'tupper' | 'fuera';
 
-export function AsignarComidaSheet({
+export function AsignarComidaPanel({
   fecha,
   tipo,
   platos,
@@ -28,13 +29,28 @@ export function AsignarComidaSheet({
   onAssignEspecial,
   onCreatePlato,
   onClear,
-}: AsignarComidaSheetProps) {
+}: AsignarComidaPanelProps) {
+  const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
   const dateLabel = formatFullDayLabel(parseISODate(fecha));
   const tipoLabel = tipo === 'comida' ? 'comida' : 'cena';
   const [mode, setMode] = useState<Mode>('list');
   const [query, setQuery] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>(currentComida?.tags ?? []);
+
+  useEffect(() => {
+    if (mode === 'list') {
+      setTitle(`Asignar ${tipoLabel}`);
+      setTopLeftBack({ label: 'Comidas', onClick: onClose });
+    } else {
+      setTitle(mode === 'tupper' ? 'Tupper' : 'Fuera');
+      setTopLeftBack({ label: 'Atrás', onClick: () => setMode('list') });
+    }
+    return () => {
+      setTitle(null);
+      setTopLeftBack(null);
+    };
+  }, [mode, tipoLabel, onClose, setTitle, setTopLeftBack]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -59,12 +75,9 @@ export function AsignarComidaSheet({
   }
 
   if (mode === 'tupper' || mode === 'fuera') {
-    const especialLabel = mode === 'tupper' ? 'Tupper' : 'Fuera';
     return (
-      <Sheet title={`${especialLabel} - ${dateLabel}`} onClose={onClose}>
-        <button type="button" className={styles.backButton} onClick={() => setMode('list')}>
-          ‹ Volver
-        </button>
+      <div>
+        <p className={styles.dateLabel}>{dateLabel}</p>
 
         {tags.length > 0 && (
           <div className={styles.tagsWrap}>
@@ -103,18 +116,19 @@ export function AsignarComidaSheet({
         >
           Guardar
         </button>
-      </Sheet>
+      </div>
     );
   }
 
   return (
-    <Sheet title={`Asignar ${tipoLabel} - ${dateLabel}`} onClose={onClose}>
+    <div>
+      <p className={styles.dateLabel}>{dateLabel}</p>
+
       <input
         className={styles.search}
         placeholder="Buscar o crear plato…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        autoFocus
       />
 
       {currentComida && (
@@ -151,6 +165,6 @@ export function AsignarComidaSheet({
           </button>
         ))}
       </div>
-    </Sheet>
+    </div>
   );
 }

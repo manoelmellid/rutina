@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Placeholder } from '../components/Placeholder';
-import { IconArrowUpDown } from '../components/icons';
+import { IconAjustes } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 
 export function HoyScreen() {
@@ -10,7 +10,7 @@ export function HoyScreen() {
 
   useEffect(() => {
     setTopRightAction({
-      icon: <IconArrowUpDown />,
+      icon: <IconAjustes />,
       label: 'Ajustes',
       onClick: () => navigate('/ajustes'),
     });

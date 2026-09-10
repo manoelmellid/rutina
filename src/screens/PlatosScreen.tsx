@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { PlatoDetail } from '../features/comidas/PlatoDetail';
-import sharedStyles from '../features/comidas/AsignarComidaSheet.module.css';
+import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
 import {
   deletePlato,

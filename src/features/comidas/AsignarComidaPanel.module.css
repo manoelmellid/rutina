@@ -1,3 +1,9 @@
+.dateLabel {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  margin: 0 4px 14px;
+}
+
 .search {
   width: 100%;
   font-size: 17px;
@@ -89,10 +95,4 @@
   background: var(--color-accent);
   border-radius: var(--radius-card);
   margin-bottom: 10px;
-}
-
-.backButton {
-  font-size: 15px;
-  color: var(--color-accent);
-  margin: 0 4px 14px;
 }

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
-import { AsignarComidaSheet } from '../features/comidas/AsignarComidaSheet';
+import { AsignarComidaPanel } from '../features/comidas/AsignarComidaPanel';
 import { IconPlus } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
@@ -33,6 +33,7 @@ export function ComidasScreen() {
   const [selection, setSelection] = useState<SlotSelection | null>(null);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
+  const scrollPosRef = useRef(0);
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllComidas()]).then(([p, c]) => {
@@ -43,9 +44,20 @@ export function ComidasScreen() {
   }, []);
 
   useEffect(() => {
+    if (selection) {
+      setTopRightAction(null);
+      return;
+    }
     setTopRightAction({ icon: <IconPlus />, label: 'Platos', onClick: () => navigate('/comidas/platos') });
     return () => setTopRightAction(null);
-  }, [setTopRightAction, navigate]);
+  }, [setTopRightAction, navigate, selection]);
+
+  // Al volver del panel de asignar, restaura el scroll de la lista de días.
+  useEffect(() => {
+    if (selection) return;
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    if (el) requestAnimationFrame(() => { el.scrollTop = scrollPosRef.current; });
+  }, [selection]);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
@@ -59,6 +71,11 @@ export function ComidasScreen() {
 
   function upsertLocalComida(c: Comida) {
     setComidas((prev) => [...prev.filter((x) => x.id !== c.id), c]);
+  }
+
+  function openSlot(fecha: string, tipo: TipoComida) {
+    scrollPosRef.current = document.querySelector('.app-content-scroll')?.scrollTop ?? 0;
+    setSelection({ fecha, tipo });
   }
 
   async function handleCreatePlato(nombre: string): Promise<string> {
@@ -107,6 +124,22 @@ export function ComidasScreen() {
 
   if (loading) return null;
 
+  if (selection) {
+    return (
+      <AsignarComidaPanel
+        fecha={selection.fecha}
+        tipo={selection.tipo}
+        platos={platos}
+        currentComida={getComida(selection.fecha, selection.tipo)}
+        onClose={() => setSelection(null)}
+        onAssignPlato={handleAssignPlato}
+        onAssignEspecial={handleAssignEspecial}
+        onCreatePlato={handleCreatePlato}
+        onClear={handleClear}
+      />
+    );
+  }
+
   return (
     <div>
       <WeekNav days={days} weekOffset={weekOffset} onChangeOffset={setWeekOffset} />
@@ -119,24 +152,10 @@ export function ComidasScreen() {
             date={date}
             getComida={(tipo) => getComida(fecha, tipo)}
             getPlatoNombre={getPlatoNombre}
-            onTapSlot={(tipo) => setSelection({ fecha, tipo })}
+            onTapSlot={(tipo) => openSlot(fecha, tipo)}
           />
         );
       })}
-
-      {selection && (
-        <AsignarComidaSheet
-          fecha={selection.fecha}
-          tipo={selection.tipo}
-          platos={platos}
-          currentComida={getComida(selection.fecha, selection.tipo)}
-          onClose={() => setSelection(null)}
-          onAssignPlato={handleAssignPlato}
-          onAssignEspecial={handleAssignEspecial}
-          onCreatePlato={handleCreatePlato}
-          onClear={handleClear}
-        />
-      )}
     </div>
   );
 }
