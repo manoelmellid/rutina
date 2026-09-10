@@ -298,7 +298,10 @@ export async function setPreferencias(p: Preferencias): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Despensa (stubs — sin consumidores todavía)
+// Despensa
+//   Fase 2: CRUD manual + fusión por ingrediente. El auto-descuento al pasar
+//   los días planificados es Fase 5; el resaltado de "planificado esta semana"
+//   necesita el generador (Fase 3). Aquí solo lo que no depende de eso.
 // ---------------------------------------------------------------------------
 
 export async function getDespensa(): Promise<DespensaEntry[]> {
@@ -314,6 +317,41 @@ export async function saveDespensaEntry(entry: DespensaEntry): Promise<void> {
 export async function deleteDespensaEntry(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('despensa', id);
+}
+
+/**
+ * Añade una entrada a la despensa. Si ya hay una entrada del mismo ingrediente
+ * con el mismo estado de apertura, le suma la cantidad (un bote más = "2 botes,
+ * N g"); si no, crea una entrada nueva.
+ */
+export async function addToDespensa(
+  ingredienteId: string,
+  cantidad: number,
+  abierto: boolean,
+): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction('despensa', 'readwrite');
+  const store = tx.objectStore('despensa');
+  const existing = await store.index('by-ingrediente').getAll(ingredienteId);
+  const match = existing.find((e) => (e.abiertoEl !== null) === abierto);
+  if (match) {
+    await store.put({ ...match, cantidad: match.cantidad + cantidad });
+  } else {
+    await store.put({
+      id: newId(),
+      ingredienteId,
+      cantidad,
+      abiertoEl: abierto ? toISODateString(new Date()) : null,
+      caducidad: null,
+    });
+  }
+  await tx.done;
+}
+
+function toISODateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
