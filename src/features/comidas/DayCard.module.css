@@ -53,3 +53,7 @@
 .valorEspecial {
   color: var(--color-accent);
 }
+
+.valorEliminado {
+  color: var(--color-danger);
+}

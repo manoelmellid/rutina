@@ -35,7 +35,7 @@ export function DayCard({ date, getComida, getPlatoNombre, onTapSlot }: DayCardP
           valorClass = styles.valorEspecial;
         } else if (comida.platoId) {
           valor = getPlatoNombre(comida.platoId);
-          valorClass = '';
+          valorClass = valor === '(eliminado)' ? styles.valorEliminado : '';
         } else {
           valor = 'Añadir';
         }
