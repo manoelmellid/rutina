@@ -1,16 +1,21 @@
 import { useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Placeholder } from '../components/Placeholder';
 import { IconArrowUpDown } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 
 export function HoyScreen() {
-  const { setTopRightAction, openSettings } = useOutletContext<LayoutContext>();
+  const { setTopRightAction } = useOutletContext<LayoutContext>();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    setTopRightAction({ icon: <IconArrowUpDown />, label: 'Ajustes', onClick: openSettings });
+    setTopRightAction({
+      icon: <IconArrowUpDown />,
+      label: 'Ajustes',
+      onClick: () => navigate('/ajustes'),
+    });
     return () => setTopRightAction(null);
-  }, [setTopRightAction, openSettings]);
+  }, [setTopRightAction, navigate]);
 
   return (
     <Placeholder
