@@ -30,3 +30,41 @@
   margin: -8px 4px 20px;
   line-height: 1.4;
 }
+
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 4px 4px 10px;
+}
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 12px;
+}
+
+.stackedRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 4px 12px;
+}
+
+.controlLabel {
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+.select {
+  font-size: 16px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: 0.5px solid var(--color-border);
+}

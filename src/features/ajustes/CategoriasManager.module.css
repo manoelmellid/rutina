@@ -1,0 +1,107 @@
+.addRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.addInput {
+  flex: 1;
+  font-size: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+}
+
+.addInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.addButton {
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rowWrap {
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+.rowWrap:last-child {
+  border-bottom: none;
+}
+
+.name {
+  flex: 1;
+  text-align: left;
+  font-size: 17px;
+  color: var(--color-text);
+}
+
+.renameInput {
+  flex: 1;
+  font-size: 17px;
+  color: var(--color-text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-accent);
+}
+
+.deleteButton {
+  font-size: 15px;
+  color: var(--color-danger);
+  flex-shrink: 0;
+  padding-left: 12px;
+}
+
+.mergeRow {
+  padding: 4px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mergeText {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.select {
+  width: 100%;
+  font-size: 16px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 0.5px solid var(--color-border);
+}
+
+.mergeActions {
+  display: flex;
+  gap: 8px;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.confirmButton {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
