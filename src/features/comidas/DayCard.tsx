@@ -12,9 +12,10 @@ interface DayCardProps {
   getComida: (tipo: TipoComida) => Comida | undefined;
   getPlatoNombre: (platoId: string) => string;
   onTapSlot: (tipo: TipoComida) => void;
+  onOpenPlato: (platoId: string) => void;
 }
 
-export function DayCard({ date, getComida, getPlatoNombre, onTapSlot }: DayCardProps) {
+export function DayCard({ date, getComida, getPlatoNombre, onTapSlot, onOpenPlato }: DayCardProps) {
   const today = isSameDate(date, new Date());
 
   return (
@@ -40,16 +41,28 @@ export function DayCard({ date, getComida, getPlatoNombre, onTapSlot }: DayCardP
           valor = 'Añadir';
         }
 
+        const platoId =
+          comida && !comida.especial && comida.platoId && valor !== '(eliminado)'
+            ? comida.platoId
+            : null;
+
         return (
-          <button
-            key={tipo}
-            type="button"
-            className={styles.row}
-            onClick={() => onTapSlot(tipo)}
-          >
-            <span className={styles.tipo}>{label}</span>
-            <span className={`${styles.valor} ${valorClass}`}>{valor}</span>
-          </button>
+          <div key={tipo} className={styles.row}>
+            <button type="button" className={styles.rowMain} onClick={() => onTapSlot(tipo)}>
+              <span className={styles.tipo}>{label}</span>
+              <span className={`${styles.valor} ${valorClass}`}>{valor}</span>
+            </button>
+            {platoId && (
+              <button
+                type="button"
+                className={styles.ficha}
+                onClick={() => onOpenPlato(platoId)}
+                aria-label={`Ver ficha de ${valor}`}
+              >
+                ›
+              </button>
+            )}
+          </div>
         );
       })}
     </div>

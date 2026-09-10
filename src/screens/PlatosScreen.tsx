@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { PlatoDetail } from '../features/comidas/PlatoDetail';
 import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
@@ -21,10 +21,15 @@ export function PlatosScreen() {
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Se puede llegar aquí con un plato concreto ya elegido (ej. tocar la ficha desde
+  // la vista de Semana). Solo se lee al montar; después manda el estado local.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    (location.state as { platoId?: string } | null)?.platoId ?? null,
+  );
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas()]).then(([p, i, c]) => {

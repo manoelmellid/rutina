@@ -1,0 +1,23 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.header {
+  flex-shrink: 0;
+}
+
+.dayList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+/* Oculta la lista hasta que el auto-scroll a hoy ya se haya colocado, para que la
+   posición inicial nunca se vea como un salto — solo se revela ya en su sitio. */
+.dayListHidden {
+  visibility: hidden;
+}
