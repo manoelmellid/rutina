@@ -74,6 +74,20 @@ export function IconCarta({ className }: IconProps) {
   );
 }
 
+/** list.bullet — catálogo de ingredientes. */
+export function IconIngredientes({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="currentColor">
+      <circle cx="2.3" cy="3.2" r="2.1" />
+      <circle cx="2.3" cy="10" r="2.1" />
+      <circle cx="2.3" cy="16.8" r="2.1" />
+      <rect x="6.6" y="1.8" width="13.4" height="2.8" rx="1.4" />
+      <rect x="6.6" y="8.6" width="13.4" height="2.8" rx="1.4" />
+      <rect x="6.6" y="15.4" width="13.4" height="2.8" rx="1.4" />
+    </svg>
+  );
+}
+
 /** gearshape — Ajustes. */
 export function IconAjustes({ className }: IconProps) {
   return (
