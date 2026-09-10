@@ -4,9 +4,10 @@ import styles from './ComidasScreen.module.css';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
 import { AsignarComidaPanel } from '../features/comidas/AsignarComidaPanel';
-import { IconPlus } from '../components/icons';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { IconCarta, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
-import { getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { formatWeekRangeLabel, getWeekDays, isSameDate, toISODate } from '../lib/week';
 import {
   comidaId,
   getAllComidas,
@@ -30,6 +31,7 @@ export function ComidasScreen() {
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
+  const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'confirm' | 'pending'>('idle');
   const [readyToReveal, setReadyToReveal] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
@@ -51,9 +53,16 @@ export function ComidasScreen() {
       setTopRightAction(null);
       return;
     }
-    setTopRightAction({ icon: <IconPlus />, label: 'Platos', onClick: () => navigate('/comidas/platos') });
+    setTopRightAction([
+      {
+        icon: <IconSparkles />,
+        label: 'Generar comidas',
+        onClick: () => setGenerateStep(weekOffset < 0 ? 'past' : 'confirm'),
+      },
+      { icon: <IconCarta />, label: 'Platos', onClick: () => navigate('/comidas/platos') },
+    ]);
     return () => setTopRightAction(null);
-  }, [setTopRightAction, navigate, selection]);
+  }, [setTopRightAction, navigate, selection, weekOffset]);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
@@ -198,6 +207,35 @@ export function ComidasScreen() {
           );
         })}
       </div>
+
+      {generateStep === 'past' && (
+        <ConfirmDialog
+          title="Semana pasada"
+          message="No se pueden generar comidas de una semana que ya pasó."
+          confirmLabel="Entendido"
+          onConfirm={() => setGenerateStep('idle')}
+          onCancel={() => setGenerateStep('idle')}
+        />
+      )}
+      {generateStep === 'confirm' && (
+        <ConfirmDialog
+          title={`¿Generar comida y cena del ${formatWeekRangeLabel(days)}?`}
+          message="Rellena solo los huecos vacíos; no toca lo que ya pusiste a mano."
+          confirmLabel="Generar"
+          cancelLabel="Cancelar"
+          onConfirm={() => setGenerateStep('pending')}
+          onCancel={() => setGenerateStep('idle')}
+        />
+      )}
+      {generateStep === 'pending' && (
+        <ConfirmDialog
+          title="Generador en camino"
+          message="El sorteo de platos se activa en la Fase 3. La pantalla y el aviso ya están listos."
+          confirmLabel="Entendido"
+          onConfirm={() => setGenerateStep('idle')}
+          onCancel={() => setGenerateStep('idle')}
+        />
+      )}
     </div>
   );
 }

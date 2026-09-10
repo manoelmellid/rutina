@@ -61,3 +61,16 @@
   color: var(--color-text-secondary);
   font-size: 14px;
 }
+
+.finishButton {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-accent);
+  border-radius: var(--radius-card);
+  margin-top: 20px;
+}

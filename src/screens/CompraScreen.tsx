@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './CompraScreen.module.css';
 import { CompraItemRow } from '../features/compra/CompraItemRow';
-import { IconPlus } from '../components/icons';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { IconPlus, IconCarta } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
@@ -19,6 +20,7 @@ export function CompraScreen() {
   const [items, setItems] = useState<ItemCompra[]>([]);
   const [loading, setLoading] = useState(true);
   const [nombre, setNombre] = useState('');
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
 
@@ -30,11 +32,18 @@ export function CompraScreen() {
   }, []);
 
   useEffect(() => {
-    setTopRightAction({
-      icon: <IconPlus />,
-      label: 'Ingredientes',
-      onClick: () => navigate('/compra/ingredientes'),
-    });
+    setTopRightAction([
+      {
+        icon: <IconCarta />,
+        label: 'Despensa',
+        onClick: () => navigate('/compra/despensa'),
+      },
+      {
+        icon: <IconPlus />,
+        label: 'Ingredientes',
+        onClick: () => navigate('/compra/ingredientes'),
+      },
+    ]);
     return () => setTopRightAction(null);
   }, [setTopRightAction, navigate]);
 
@@ -84,6 +93,16 @@ export function CompraScreen() {
     setItems((prev) => [...prev, ...nuevos]);
   }
 
+  async function handleFinish() {
+    setConfirmingFinish(false);
+    // Fase 4: los artículos marcados entran en la despensa (paquete entero) usando
+    // su ingredienteId. Hoy ItemCompra aún no referencia el catálogo, así que de
+    // momento "finalizar" solo los saca de la lista.
+    const comprados = items.filter((i) => i.comprado);
+    await Promise.all(comprados.map((i) => deleteItemCompra(i.id)));
+    setItems((prev) => prev.filter((i) => !i.comprado));
+  }
+
   if (loading) return null;
 
   const pendientes = items.filter((i) => !i.comprado);
@@ -124,6 +143,27 @@ export function CompraScreen() {
             />
           ))}
         </div>
+      )}
+
+      {comprados.length > 0 && (
+        <button
+          type="button"
+          className={styles.finishButton}
+          onClick={() => setConfirmingFinish(true)}
+        >
+          Compra finalizada ({comprados.length})
+        </button>
+      )}
+
+      {confirmingFinish && (
+        <ConfirmDialog
+          title="¿Compra finalizada?"
+          message={`Los ${comprados.length} artículo(s) marcados salen de la lista. (Pasar a la despensa llega en la Fase 4.)`}
+          confirmLabel="Finalizar"
+          cancelLabel="Cancelar"
+          onConfirm={handleFinish}
+          onCancel={() => setConfirmingFinish(false)}
+        />
       )}
     </div>
   );
