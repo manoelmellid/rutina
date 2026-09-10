@@ -11,8 +11,6 @@ import {
   comidaId,
   getAllComidas,
   getAllPlatos,
-  newId,
-  savePlato,
   setComida,
   clearComida,
   type Comida,
@@ -120,13 +118,6 @@ export function ComidasScreen() {
     setSelection({ fecha, tipo });
   }
 
-  async function handleCreatePlato(nombre: string): Promise<string> {
-    const plato: Plato = { id: newId(), nombre, ingredientes: [], notas: '' };
-    await savePlato(plato);
-    setPlatos((prev) => [...prev, plato]);
-    return plato.id;
-  }
-
   async function handleAssignPlato(platoId: string) {
     if (!selection) return;
     const c: Comida = {
@@ -176,7 +167,6 @@ export function ComidasScreen() {
         onClose={() => setSelection(null)}
         onAssignPlato={handleAssignPlato}
         onAssignEspecial={handleAssignEspecial}
-        onCreatePlato={handleCreatePlato}
         onClear={handleClear}
       />
     );

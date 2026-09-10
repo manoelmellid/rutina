@@ -13,7 +13,6 @@ interface AsignarComidaPanelProps {
   onClose: () => void;
   onAssignPlato: (platoId: string) => void;
   onAssignEspecial: (especial: Especial, tags: string[]) => void;
-  onCreatePlato: (nombre: string) => Promise<string>;
   onClear: () => void;
 }
 
@@ -27,7 +26,6 @@ export function AsignarComidaPanel({
   onClose,
   onAssignPlato,
   onAssignEspecial,
-  onCreatePlato,
   onClear,
 }: AsignarComidaPanelProps) {
   const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
@@ -57,15 +55,6 @@ export function AsignarComidaPanel({
     if (!q) return platos;
     return platos.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [platos, query]);
-
-  const exactMatch = platos.some((p) => p.nombre.toLowerCase() === query.trim().toLowerCase());
-
-  async function handleCreateAndAssign() {
-    const nombre = query.trim();
-    if (!nombre) return;
-    const id = await onCreatePlato(nombre);
-    onAssignPlato(id);
-  }
 
   function addTag() {
     const t = tagInput.trim();
@@ -126,7 +115,7 @@ export function AsignarComidaPanel({
 
       <input
         className={styles.search}
-        placeholder="Buscar o crear plato…"
+        placeholder="Buscar plato…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -151,13 +140,10 @@ export function AsignarComidaPanel({
       </div>
 
       <div className={styles.group}>
-        {query.trim() && !exactMatch && (
-          <button type="button" className={`${styles.row} ${styles.rowAccent}`} onClick={handleCreateAndAssign}>
-            + Crear "{query.trim()}"
-          </button>
-        )}
-        {filtered.length === 0 && !query.trim() && (
-          <p className={styles.emptyHint}>Aún no tienes platos. Escribe uno arriba para crearlo.</p>
+        {filtered.length === 0 && (
+          <p className={styles.emptyHint}>
+            No hay platos que coincidan. Créalos en la pantalla Platos.
+          </p>
         )}
         {filtered.map((p) => (
           <button key={p.id} type="button" className={styles.row} onClick={() => onAssignPlato(p.id)}>
