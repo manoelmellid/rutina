@@ -5,21 +5,25 @@ import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
 import {
   deletePlato,
+  getAllCategorias,
   getAllComidas,
   getAllIngredientes,
   getAllPlatos,
   newId,
   savePlato,
   saveIngrediente,
+  type Categoria,
   type Comida,
   type Ingrediente,
   type Plato,
+  type Unidad,
 } from '../lib/db';
 
 export function PlatosScreen() {
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
@@ -32,12 +36,15 @@ export function PlatosScreen() {
   );
 
   useEffect(() => {
-    Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas()]).then(([p, i, c]) => {
-      setPlatos(p);
-      setIngredientes(i);
-      setComidas(c);
-      setLoading(false);
-    });
+    Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas(), getAllCategorias()]).then(
+      ([p, i, c, cat]) => {
+        setPlatos(p);
+        setIngredientes(i);
+        setComidas(c);
+        setCategorias(cat);
+        setLoading(false);
+      },
+    );
   }, []);
 
   const selectedPlato = platos.find((p) => p.id === selectedId) ?? null;
@@ -68,7 +75,14 @@ export function PlatosScreen() {
   async function handleCreate() {
     const nombre = query.trim();
     if (!nombre) return;
-    const plato: Plato = { id: newId(), nombre, ingredientes: [], notas: '' };
+    const plato: Plato = {
+      id: newId(),
+      nombre,
+      ingredientes: [],
+      notas: '',
+      categoriaIds: [],
+      tipo: 'ambas',
+    };
     await savePlato(plato);
     setPlatos((prev) => [...prev, plato]);
     setQuery('');
@@ -87,17 +101,23 @@ export function PlatosScreen() {
     setSelectedId(null);
   }
 
-  async function handleCreateIngrediente(nombre: string): Promise<string> {
-    const ingrediente: Ingrediente = { id: newId(), nombre };
+  async function handleCreateIngrediente(data: {
+    nombre: string;
+    unidad: Unidad;
+    tamanoPaquete: number | null;
+  }): Promise<string> {
+    const ingrediente: Ingrediente = { id: newId(), diasAbierto: null, ...data };
     await saveIngrediente(ingrediente);
     setIngredientes((prev) => [...prev, ingrediente]);
     return ingrediente.id;
   }
 
   async function handleRenameIngrediente(id: string, nombre: string) {
-    const ingrediente: Ingrediente = { id, nombre };
-    await saveIngrediente(ingrediente);
-    setIngredientes((prev) => prev.map((i) => (i.id === id ? ingrediente : i)));
+    const existing = ingredientes.find((i) => i.id === id);
+    if (!existing) return;
+    const updated = { ...existing, nombre };
+    await saveIngrediente(updated);
+    setIngredientes((prev) => prev.map((i) => (i.id === id ? updated : i)));
   }
 
   if (loading) return null;
@@ -107,6 +127,7 @@ export function PlatosScreen() {
       <PlatoDetail
         plato={selectedPlato}
         ingredientes={ingredientes}
+        categorias={categorias}
         usageCount={comidas.filter((c) => c.platoId === selectedPlato.id).length}
         onSave={handleUpdatePlato}
         onDelete={() => handleDeletePlato(selectedPlato.id)}
