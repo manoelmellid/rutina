@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './CompraScreen.module.css';
 import { CompraItemRow } from '../features/compra/CompraItemRow';
 import { IconPlus } from '../components/icons';
+import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   deleteItemCompra,
@@ -17,6 +19,8 @@ export function CompraScreen() {
   const [items, setItems] = useState<ItemCompra[]>([]);
   const [loading, setLoading] = useState(true);
   const [nombre, setNombre] = useState('');
+  const { setTopRightAction } = useOutletContext<LayoutContext>();
+  const navigate = useNavigate();
 
   useEffect(() => {
     getListaCompra().then((data) => {
@@ -24,6 +28,15 @@ export function CompraScreen() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    setTopRightAction({
+      icon: <IconPlus />,
+      label: 'Ingredientes',
+      onClick: () => navigate('/compra/ingredientes'),
+    });
+    return () => setTopRightAction(null);
+  }, [setTopRightAction, navigate]);
 
   async function handleAdd() {
     const n = nombre.trim();

@@ -1,0 +1,75 @@
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 4px 4px 8px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 8px 4px 0;
+  line-height: 1.4;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--color-danger);
+  margin: 8px 4px 0;
+}
+
+.paqueteRow {
+  display: flex;
+  gap: 8px;
+}
+
+.paqueteInput {
+  flex: 1;
+  font-size: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+}
+
+.paqueteInput:disabled {
+  opacity: 0.4;
+}
+
+.paqueteInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.granelToggle {
+  flex-shrink: 0;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text-secondary);
+  border: 0.5px solid var(--color-border);
+  font-size: 14px;
+}
+
+.granelToggleOn {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+.diasInput {
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-text);
+  border: none;
+  margin-bottom: 8px;
+}
+
+.diasInput::placeholder {
+  color: var(--color-text-secondary);
+}
