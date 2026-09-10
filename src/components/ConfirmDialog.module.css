@@ -1,0 +1,63 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 300px;
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 20px 18px 14px;
+  text-align: center;
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.message {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.cancel,
+.confirm {
+  flex: 1;
+  padding: 11px 12px;
+  border-radius: var(--radius-control);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cancel {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.confirm {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.confirmDanger {
+  background: var(--color-danger);
+}

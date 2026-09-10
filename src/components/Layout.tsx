@@ -12,13 +12,14 @@ const TITLES: Record<string, string> = {
   '/ajustes': 'Ajustes',
   '/compra': 'Compra',
   '/compra/ingredientes': 'Ingredientes',
+  '/compra/despensa': 'Despensa',
   '/finanzas': 'Finanzas',
   '/gym': 'Gym',
 };
 
 export function Layout() {
   const location = useLocation();
-  const [topRightAction, setTopRightAction] = useState<TopBarAction | null>(null);
+  const [topRightAction, setTopRightAction] = useState<TopBarAction | TopBarAction[] | null>(null);
   const [topLeftBack, setTopLeftBack] = useState<TopBarBack | null>(null);
   const [customTitle, setCustomTitle] = useState<string | null>(null);
   const title = customTitle ?? TITLES[location.pathname] ?? 'Rutina';

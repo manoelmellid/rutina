@@ -14,11 +14,12 @@ export interface TopBarBack {
 
 interface TopBarProps {
   title: string;
-  action: TopBarAction | null;
+  action: TopBarAction | TopBarAction[] | null;
   back?: TopBarBack | null;
 }
 
 export function TopBar({ title, action, back }: TopBarProps) {
+  const actions = action ? (Array.isArray(action) ? action : [action]) : [];
   return (
     <header className={styles.topBar}>
       {back && (
@@ -28,10 +29,20 @@ export function TopBar({ title, action, back }: TopBarProps) {
       )}
       <div className={styles.titleRow}>
         <h1 className={styles.title}>{title}</h1>
-        {action && (
-          <button type="button" className={styles.gearButton} onClick={action.onClick} aria-label={action.label}>
-            {action.icon}
-          </button>
+        {actions.length > 0 && (
+          <div className={styles.actions}>
+            {actions.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                className={styles.gearButton}
+                onClick={a.onClick}
+                aria-label={a.label}
+              >
+                {a.icon}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </header>
