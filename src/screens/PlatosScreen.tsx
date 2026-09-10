@@ -121,7 +121,6 @@ export function PlatosScreen() {
         onKeyDown={(e) => {
           if (e.key === 'Enter' && query.trim() && !exactMatch) handleCreate();
         }}
-        autoFocus
       />
 
       <div className={sharedStyles.group}>

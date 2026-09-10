@@ -20,9 +20,11 @@ export function Sheet({ title, onClose, children }: SheetProps) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.grabber} />
-        {title && <h2 className={styles.heading}>{title}</h2>}
-        {children}
+        <div className={styles.header}>
+          <div className={styles.grabber} />
+          {title && <h2 className={styles.heading}>{title}</h2>}
+        </div>
+        <div className={styles.body}>{children}</div>
       </div>
     </div>
   );

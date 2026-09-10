@@ -4,6 +4,7 @@
   left: 0;
   right: 0;
   height: var(--app-height, 100vh);
+  transform: translateY(var(--app-offset-top, 0px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12,8 +13,10 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  /* No -webkit-overflow-scrolling: touch — iOS moderno hace momentum scroll por
+     defecto, y esa propiedad crea una capa de composición que deja artefactos
+     visuales (huecos grises) durante el rebote elástico. */
+  overscroll-behavior: none;
   padding: 8px max(16px, var(--safe-right)) calc(var(--tab-bar-height) + 6px + 24px)
     max(16px, var(--safe-left));
 }
