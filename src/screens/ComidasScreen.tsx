@@ -8,7 +8,7 @@ import { PropuestaGeneradorPanel } from '../features/comidas/PropuestaGeneradorP
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { IconCarta, IconMes, IconRestricciones, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
-import { getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { getWeekDays, toISODate } from '../lib/week';
 import {
   describirAlcance,
   planificar,
@@ -50,6 +50,11 @@ export function ComidasScreen() {
   const [weekOffset, setWeekOffset] = useState(
     (location.state as { weekOffset?: number } | null)?.weekOffset ?? 0,
   );
+  // Día al que hay que hacer scroll al aterrizar: el que se tocó en Mes, o "hoy" por defecto
+  // (mismo patrón de "solo se lee al montar" que weekOffset arriba).
+  const [targetFecha] = useState(
+    (location.state as { fecha?: string } | null)?.fecha ?? toISODate(new Date()),
+  );
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [prefs, setPrefs] = useState<Preferencias | null>(null);
@@ -63,9 +68,9 @@ export function ComidasScreen() {
   const [readyToReveal, setReadyToReveal] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
-  const todayCardRef = useRef<HTMLDivElement | null>(null);
+  const targetCardRef = useRef<HTMLDivElement | null>(null);
   const dayListRef = useRef<HTMLDivElement | null>(null);
-  const hasScrolledToTodayRef = useRef(false);
+  const hasScrolledRef = useRef(false);
   const scrollPosRef = useRef(0);
 
   useEffect(() => {
@@ -119,36 +124,33 @@ export function ComidasScreen() {
     return () => setTopRightAction(null);
   }, [setTopRightAction, navigate, selection, propuesta, weekOffset, prefs, days]);
 
-  // Coloca la vista en el día de hoy (solo en la semana actual). Ported de comidas-app:
-  // doble rAF para medir tras el layout real, retry de respaldo, y la lista oculta
-  // hasta el primer intento para que no se vea el salto desde el lunes.
+  // Coloca la vista en `targetFecha` (hoy por defecto, o el día que se tocó desde Mes) cuando esa
+  // fecha cae en la semana visible; si no (p. ej. navegando con ‹/› a otra semana), vuelve al
+  // principio. Ported de comidas-app: doble rAF para medir tras el layout real, retry de
+  // respaldo, y la lista oculta hasta el primer intento para que no se vea el salto desde el lunes.
   useEffect(() => {
     if (loading) return;
 
-    if (weekOffset !== 0) {
-      if (dayListRef.current) dayListRef.current.scrollTop = 0;
-      setReadyToReveal(true);
-      return;
-    }
-
-    function scrollToToday() {
+    function scrollToTarget() {
       const container = dayListRef.current;
-      const card = todayCardRef.current;
+      const card = targetCardRef.current;
       if (container && card) {
         const delta = card.getBoundingClientRect().top - container.getBoundingClientRect().top;
         if (Math.abs(delta) >= 1) {
-          container.scrollBy({ top: delta, behavior: hasScrolledToTodayRef.current ? 'smooth' : 'auto' });
+          container.scrollBy({ top: delta, behavior: hasScrolledRef.current ? 'smooth' : 'auto' });
         }
-        hasScrolledToTodayRef.current = true;
+        hasScrolledRef.current = true;
+      } else if (container) {
+        container.scrollTop = 0;
       }
       setReadyToReveal(true);
     }
 
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(scrollToToday);
+      raf2 = requestAnimationFrame(scrollToTarget);
     });
-    const retry = setTimeout(scrollToToday, 350);
+    const retry = setTimeout(scrollToTarget, 350);
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
@@ -341,9 +343,8 @@ export function ComidasScreen() {
       >
         {days.map((date) => {
           const fecha = toISODate(date);
-          const isToday = isSameDate(date, new Date());
           return (
-            <div key={fecha} ref={isToday ? todayCardRef : undefined}>
+            <div key={fecha} ref={fecha === targetFecha ? targetCardRef : undefined}>
               <DayCard
                 date={date}
                 getComida={(tipo) => getComida(fecha, tipo)}
