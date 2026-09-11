@@ -41,20 +41,6 @@
   font-weight: 700;
 }
 
-/* DEBUG TEMPORAL — diagnóstico del swipe, quitar junto con el resto de lo marcado "DEBUG
-   TEMPORAL" en cuanto se sepa qué está pasando. */
-.debug {
-  flex-shrink: 0;
-  margin: 0 16px 6px;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-family: monospace;
-  color: #fff;
-  background: #d5350f;
-  border-radius: 6px;
-  word-break: break-all;
-}
-
 .grid {
   flex: 1;
   display: flex;
