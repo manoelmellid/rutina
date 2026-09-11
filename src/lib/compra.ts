@@ -138,6 +138,47 @@ export function reconciliarListaCompra(input: ReconciliarInput): ReconciliarResu
   return { items, aGuardar, aBorrar };
 }
 
+/** Días de margen antes de considerar urgente ir a la compra (para Hoy). Fijo, no configurable. */
+export const UMBRAL_COMPRA_DIAS = 3;
+
+export interface EstadoCompra {
+  pendientes: number; // artículos sin comprar (catálogo + manuales)
+  diasHastaNecesario: number | null; // días hasta la comida más próxima que los necesita, o null
+}
+
+function atMidnight(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Estado de la lista de la compra para el resumen de Hoy: cuántos artículos faltan y cuándo. */
+export function estadoCompra(
+  items: ItemCompra[],
+  comidasPorId: Map<string, Comida>,
+  hoy: Date,
+): EstadoCompra {
+  const pendientes = items.filter((i) => !i.comprado);
+  let diasHastaNecesario: number | null = null;
+  for (const item of pendientes) {
+    for (const comidaId of item.origenComidaIds) {
+      const comida = comidasPorId.get(comidaId);
+      if (!comida) continue;
+      const dias = Math.round(
+        (atMidnight(parseISODate(comida.fecha)).getTime() - atMidnight(hoy).getTime()) / 86_400_000,
+      );
+      if (diasHastaNecesario === null || dias < diasHastaNecesario) diasHastaNecesario = dias;
+    }
+  }
+  return { pendientes: pendientes.length, diasHastaNecesario };
+}
+
+export function esCompraUrgente(estado: EstadoCompra): boolean {
+  return (
+    estado.pendientes > 0 &&
+    estado.diasHastaNecesario !== null &&
+    estado.diasHastaNecesario <= UMBRAL_COMPRA_DIAS
+  );
+}
+
 const DIA_CORTO = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
 
 /** "Tortitas (lun), Bizcocho (mié)" — qué plato/día pide un artículo de catálogo. */
