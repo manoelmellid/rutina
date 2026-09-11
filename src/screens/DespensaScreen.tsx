@@ -5,7 +5,15 @@ import styles from './DespensaScreen.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
 import { IconPlus } from '../components/icons';
 import { formatCantidad, parseCantidad, UNIDAD_LABEL } from '../lib/units';
-import { agruparDespensa, etiquetaLote, ingredientesEnPlan, resumenLotes } from '../lib/despensa';
+import {
+  agruparDespensa,
+  diasHastaCaducar,
+  esUrgente,
+  etiquetaCaducidad,
+  etiquetaLote,
+  ingredientesEnPlan,
+  resumenLotes,
+} from '../lib/despensa';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   addToDespensa,
@@ -140,6 +148,7 @@ export function DespensaScreen() {
         <div className={sharedStyles.group}>
           {grupos.map((grupo) => {
             const ing = ingMap.get(grupo.ingredienteId);
+            const diasCaducidad = grupo.abierto ? diasHastaCaducar(grupo.abierto, ing, new Date()) : null;
             return (
               <button
                 key={grupo.ingredienteId}
@@ -152,6 +161,9 @@ export function DespensaScreen() {
                     {ing?.nombre ?? '(eliminado)'}
                     {enPlan.has(grupo.ingredienteId) && (
                       <span className={styles.planBadge}>en el plan</span>
+                    )}
+                    {esUrgente(diasCaducidad) && (
+                      <span className={styles.caducaBadge}>{etiquetaCaducidad(diasCaducidad!)}</span>
                     )}
                   </span>
                   <span className={sharedStyles.rowSecondary}>{resumenLotes(grupo, ing)}</span>
@@ -344,6 +356,7 @@ function LoteRow({
     ing ? formatCantidad(lote.cantidad, ing.unidad) : String(lote.cantidad),
   );
   const [confirming, setConfirming] = useState(false);
+  const diasCaducidad = diasHastaCaducar(lote, ing, new Date());
 
   function commit() {
     if (!ing) return;
@@ -372,7 +385,17 @@ function LoteRow({
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
         />
-        <span className={sharedStyles.rowSecondary}>{etiquetaLote(lote)}</span>
+        <span className={sharedStyles.rowSecondary}>
+          {etiquetaLote(lote)}
+          {diasCaducidad !== null && (
+            <>
+              {' · '}
+              <span className={esUrgente(diasCaducidad) ? styles.caducaBadge : styles.caducidadPlana}>
+                {etiquetaCaducidad(diasCaducidad)}
+              </span>
+            </>
+          )}
+        </span>
       </span>
       <button
         type="button"
