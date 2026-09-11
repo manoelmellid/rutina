@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './ComidasScreen.module.css';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
@@ -43,7 +43,13 @@ interface SlotSelection {
 }
 
 export function ComidasScreen() {
-  const [weekOffset, setWeekOffset] = useState(0);
+  const location = useLocation();
+  // Se puede llegar aquí con una semana concreta ya elegida (ej. tocar un día desde la vista de
+  // Mes). Solo se lee al montar; después manda el estado local, igual que el patrón de
+  // `selectedId` en PlatosScreen.
+  const [weekOffset, setWeekOffset] = useState(
+    (location.state as { weekOffset?: number } | null)?.weekOffset ?? 0,
+  );
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [prefs, setPrefs] = useState<Preferencias | null>(null);

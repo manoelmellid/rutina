@@ -17,12 +17,19 @@
  * relying on it being correct and instead translates itself by
  * -offsetTop via `--app-offset-top`, keeping it pinned to the visual
  * viewport regardless of what the layout viewport thinks.
+ *
+ * `--app-width` is the same idea for the horizontal axis — added for `MesScreen`'s CSS-fake-
+ * landscape trick (the manifest locks `orientation: portrait`, so the device never rotates for
+ * real; `MesScreen` rotates its own content 90deg instead, and needs both real dimensions to size
+ * the rotated box correctly).
  */
 export function initAppHeight(): void {
   const setHeight = () => {
     const vv = window.visualViewport;
     const height = vv?.height ?? window.innerHeight;
+    const width = vv?.width ?? window.innerWidth;
     document.documentElement.style.setProperty('--app-height', `${height}px`);
+    document.documentElement.style.setProperty('--app-width', `${width}px`);
     document.documentElement.style.setProperty('--app-offset-top', `${vv?.offsetTop ?? 0}px`);
   };
 

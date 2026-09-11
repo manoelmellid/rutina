@@ -16,11 +16,13 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Fuera de Layout a propósito: pinta su propia cabecera dentro del bloque rotado
+            (ver MesScreen.tsx) — el TopBar/TabBar normales no tendrían sentido aquí. */}
+        <Route path="/comidas/mes" element={<MesScreen />} />
         <Route element={<Layout />}>
           <Route path="/" element={<HoyScreen />} />
           <Route path="/comidas" element={<ComidasScreen />} />
           <Route path="/comidas/platos" element={<PlatosScreen />} />
-          <Route path="/comidas/mes" element={<MesScreen />} />
           <Route path="/comidas/restricciones" element={<RestriccionesScreen />} />
           <Route path="/ajustes" element={<AjustesScreen />} />
           <Route path="/compra" element={<CompraScreen />} />

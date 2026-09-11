@@ -1,0 +1,113 @@
+.landscapeRoot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--app-height, 100vh);
+  height: var(--app-width, 100vw);
+  transform-origin: top left;
+  transform: rotate(90deg) translateY(-100%);
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* El dispositivo sigue físicamente en vertical (orientation: portrait en el manifest) — solo
+     el CONTENIDO se rota 90°. env(safe-area-inset-*) sigue midiendo respecto a la orientación
+     física real, así que tras la rotación: físico-arriba → borde izquierdo de esta caja,
+     físico-derecha → borde superior, físico-izquierda → borde inferior. El borde derecho
+     (físico-abajo) NO se compensa aquí a propósito: --app-height (visualViewport.height) ya
+     excluye esa zona reservada — sumar env(safe-area-inset-bottom) también duplicaría el margen
+     (mismo error que ya se dio una vez con el tab bar, ver CLAUDE.md). */
+  padding-left: var(--safe-top);
+  padding-top: var(--safe-right);
+  padding-bottom: var(--safe-left);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+}
+
+.backButton {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 12px;
+  min-height: 0;
+  gap: 4px;
+}
+
+.weekdayRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.weekdayLabel {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding-bottom: 2px;
+}
+
+.weekRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.cell {
+  background: var(--color-card);
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.cellToday {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+.dayNum {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.slot {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slotVacio {
+  color: var(--color-text-secondary);
+}
+
+.slotEspecial {
+  color: var(--color-accent);
+}
+
+.slotEliminado {
+  color: var(--color-danger);
+}
