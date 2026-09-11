@@ -183,7 +183,7 @@ export function CompraScreen() {
       {confirmingFinish && (
         <ConfirmDialog
           title="¿Compra finalizada?"
-          message={`Los ${comprados.length} artículo(s) marcados salen de la lista; los que están en el catálogo de ingredientes se añaden a la despensa (paquete entero).`}
+          message={`${comprados.length === 1 ? 'El artículo marcado sale' : `Los ${comprados.length} artículos marcados salen`} de la lista. Los del catálogo de ingredientes se añaden a la despensa en su paquete completo.`}
           confirmLabel="Finalizar"
           cancelLabel="Cancelar"
           onConfirm={handleFinish}

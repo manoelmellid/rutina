@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './MesScreen.module.css';
-import { getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { addDays, formatMonthLabel, getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComida } from '../lib/db';
 
 // Rango inicial (~2 meses a cada lado); se AMPLÍA sobre la marcha al acercarse a un borde (ver
@@ -22,7 +22,7 @@ interface Resumen {
 }
 
 function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>): Resumen {
-  if (!comida) return { texto: '—', clase: styles.slotVacio };
+  if (!comida) return { texto: '', clase: styles.slotVacio };
   if (comida.especial) {
     const nombre = comida.especial === 'tupper' ? 'Tupper' : 'Fuera';
     return {
@@ -34,7 +34,20 @@ function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>):
     const nombre = platoById.get(comida.platoId)?.nombre ?? '(eliminado)';
     return { texto: nombre, clase: nombre === '(eliminado)' ? styles.slotEliminado : styles.slotLleno };
   }
-  return { texto: '—', clase: styles.slotVacio };
+  return { texto: '', clase: styles.slotVacio };
+}
+
+/**
+ * Nombre del mes a mostrar junto al número de día, o `null` si no toca. Se muestra en tres casos:
+ * el día 1 de cualquier mes, el último día de cualquier mes, y la primera celda de todo el rango
+ * renderizado (ancla superior izquierda) — este último caso es necesario porque las semanas no
+ * están virtualizadas (todas viven en el DOM) y el scroll puede empezar en cualquier punto del
+ * mes, sin pasar nunca por un cambio de mes real.
+ */
+function mesLabelPara(date: Date, esAncla: boolean): string | null {
+  const esUltimoDiaDelMes = addDays(date, 1).getMonth() !== date.getMonth();
+  if (date.getDate() === 1 || esUltimoDiaDelMes || esAncla) return formatMonthLabel(date);
+  return null;
 }
 
 /**
@@ -327,9 +340,11 @@ export function MesScreen() {
           <div className={styles.weeksScroll} ref={weeksScrollRef}>
             {semanas.map(({ offset, dias }) => (
               <div key={offset} className={styles.weekRow}>
-                {dias.map((date) => {
+                {dias.map((date, dayIndex) => {
                   const fecha = toISODate(date);
                   const today = isSameDate(date, new Date());
+                  const esAncla = offset === minOffset && dayIndex === 0;
+                  const mesLabel = mesLabelPara(date, esAncla);
                   return (
                     <button
                       key={fecha}
@@ -337,7 +352,10 @@ export function MesScreen() {
                       className={`${styles.cell} ${today ? styles.cellToday : ''}`}
                       onClick={() => navigate('/comidas', { state: { weekOffset: offset, fecha } })}
                     >
-                      <span className={styles.dayNum}>{date.getDate()}</span>
+                      <span className={styles.dayHeader}>
+                        <span className={styles.dayNum}>{date.getDate()}</span>
+                        {mesLabel && <span className={styles.monthLabel}>{mesLabel}</span>}
+                      </span>
                       {TIPOS.map((tipo) => {
                         const r = resumenSlot(getComida(fecha, tipo), platoById);
                         return (

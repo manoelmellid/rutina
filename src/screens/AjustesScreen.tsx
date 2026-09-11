@@ -120,11 +120,11 @@ export function AjustesScreen() {
         />
       </div>
       <p className={styles.hint}>
-        El backup sustituye a la sincronización en la nube: descarga un archivo con todos tus datos
-        (comidas, compra, ingredientes, categorías y ajustes) y podrás restaurarlo en este u otro
-        dispositivo. "Sustituir todo" borra los datos actuales antes de meter los del archivo;
-        "Fusionar" no borra nada — añade o actualiza por id lo que traiga el archivo (útil para
-        meter platos predefinidos sin perder lo que ya tengas).
+        El backup sustituye a la sincronización en la nube. Descarga un archivo con todos tus datos
+        (comidas, compra, ingredientes, categorías y ajustes) y podrás restaurarlo en este o en
+        otro dispositivo. "Sustituir todo" borra los datos actuales antes de meter los del archivo.
+        "Fusionar" no borra nada, solo añade o actualiza por id lo que traiga el archivo (útil para
+        meter platos predefinidos sin perder lo que ya tienes).
       </p>
 
       {prefs && (

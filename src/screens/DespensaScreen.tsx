@@ -138,12 +138,12 @@ export function DespensaScreen() {
   return (
     <div>
       <p className={sharedStyles.dateLabel}>
-        Lo que hay en casa. Se llena sola al pulsar “Compra finalizada” y al cocinar un plato
-        planificado; aquí puedes añadir o corregir a mano. Lo marcado <strong>en el plan</strong>{' '}
-        lo usa un plato ya asignado esta semana.
+        Lo que hay en casa. Se llena sola al confirmar la compra o al cocinar un plato planificado,
+        y aquí puedes añadir o corregir cualquier cantidad a mano. Lo marcado{' '}
+        <strong>en el plan</strong> corresponde a un plato ya asignado esta semana.
       </p>
       {grupos.length === 0 ? (
-        <p className={sharedStyles.emptyHint}>La despensa está vacía. Usa “+” para añadir algo.</p>
+        <p className={sharedStyles.emptyHint}>La despensa está vacía. Añade tu primer producto con el botón +.</p>
       ) : (
         <div className={sharedStyles.group}>
           {grupos.map((grupo) => {
@@ -240,7 +240,7 @@ function AddForm({
             className={sharedStyles.saveButton}
             onClick={() => navigate('/compra/ingredientes')}
           >
-            No hay ingredientes. Crear el primero
+            No hay ingredientes todavía. Crea el primero.
           </button>
         ) : (
           <div className={sharedStyles.group}>
@@ -326,8 +326,8 @@ function DetailView({
   return (
     <div>
       <p className={sharedStyles.dateLabel}>
-        Un lote sin abrir y, como mucho, uno abierto. Ajusta la cantidad solo para corregir;
-        lo normal es que baje sola al pasar los días.
+        Un lote sin abrir y, como mucho, uno abierto. Ajusta la cantidad solo para corregir algo.
+        Lo normal es que baje sola con el paso de los días.
       </p>
       <div className={sharedStyles.group}>
         {lotes.map((lote) => (

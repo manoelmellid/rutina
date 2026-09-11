@@ -26,6 +26,7 @@ export function getWeekDays(weekOffset: number): Date[] {
 }
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric' });
+const MONTH_FORMATTER = new Intl.DateTimeFormat('es-ES', { month: 'long' });
 const RANGE_FORMATTER = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
 const FULL_DAY_FORMATTER = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
@@ -35,6 +36,11 @@ const FULL_DAY_FORMATTER = new Intl.DateTimeFormat('es-ES', {
 
 export function formatDayLabel(d: Date): string {
   const label = DAY_FORMATTER.format(d);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export function formatMonthLabel(d: Date): string {
+  const label = MONTH_FORMATTER.format(d);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -53,9 +59,9 @@ export function formatFullDayLabel(d: Date): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-/** "8 sept – 14 sept" para dos fechas cualesquiera (no necesariamente una semana). */
+/** "8 sept al 14 sept" para dos fechas cualesquiera (no necesariamente una semana). */
 export function formatRangeLabel(a: Date, b: Date): string {
-  return `${RANGE_FORMATTER.format(a)} – ${RANGE_FORMATTER.format(b)}`;
+  return `${RANGE_FORMATTER.format(a)} al ${RANGE_FORMATTER.format(b)}`;
 }
 
 export function formatWeekRangeLabel(days: Date[]): string {

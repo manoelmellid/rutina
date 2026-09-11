@@ -103,6 +103,7 @@ export function ComidasScreen() {
       {
         icon: <IconSparkles />,
         label: 'Generar comidas',
+        variant: 'accent',
         onClick: () => {
           if (weekOffset < 0) {
             setGenerateStep('past');
@@ -116,10 +117,16 @@ export function ComidasScreen() {
       {
         icon: <IconRestricciones />,
         label: 'Restricciones',
+        variant: 'danger',
         onClick: () => navigate('/comidas/restricciones'),
       },
-      { icon: <IconMes />, label: 'Mes', onClick: () => navigate('/comidas/mes') },
-      { icon: <IconCarta />, label: 'Platos', onClick: () => navigate('/comidas/platos') },
+      { icon: <IconMes />, label: 'Mes', showLabel: true, onClick: () => navigate('/comidas/mes') },
+      {
+        icon: <IconCarta />,
+        label: 'Platos',
+        showLabel: true,
+        onClick: () => navigate('/comidas/platos'),
+      },
     ]);
     return () => setTopRightAction(null);
   }, [setTopRightAction, navigate, selection, propuesta, weekOffset, prefs, days]);
@@ -378,7 +385,7 @@ export function ComidasScreen() {
       {generateStep === 'confirm' && prefs && (
         <ConfirmDialog
           title={`¿Generar comida y cena ${describirAlcance(prefs, slotsObjetivo(prefs, days, new Date()))}?`}
-          message="Rellena solo los huecos vacíos; no toca lo que ya pusiste a mano."
+          message="Rellena solo los huecos vacíos, y no toca lo que ya pusiste a mano."
           confirmLabel="Generar"
           cancelLabel="Cancelar"
           onConfirm={handleGenerar}
