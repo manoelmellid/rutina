@@ -3,10 +3,12 @@ import sharedStyles from '../comidas/AsignarComidaPanel.module.css';
 import styles from './IngredienteDetail.module.css';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { formatCantidad, parseCantidad } from '../../lib/units';
+import { hayCoincidencia } from '../../lib/nombres';
 import type { Ingrediente, Unidad } from '../../lib/db';
 
 interface IngredienteDetailProps {
   ingrediente: Ingrediente;
+  ingredientes: Ingrediente[];
   usageCount: number;
   onSave: (updated: Ingrediente) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -20,6 +22,7 @@ const UNIDAD_OPTIONS: { value: Unidad; label: string }[] = [
 
 export function IngredienteDetail({
   ingrediente,
+  ingredientes,
   usageCount,
   onSave,
   onDelete,
@@ -37,6 +40,8 @@ export function IngredienteDetail({
     ingrediente.diasAbierto !== null ? String(ingrediente.diasAbierto) : '',
   );
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const nombreDuplicado = hayCoincidencia(nombre, ingredientes, ingrediente.id);
 
   function normalizePaqueteOnBlur() {
     if (aGranel || !paqueteInput.trim()) return;
@@ -85,6 +90,7 @@ export function IngredienteDetail({
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
       />
+      {nombreDuplicado && <p className={styles.error}>Ya existe un ingrediente con este nombre.</p>}
 
       <p className={styles.fieldLabel}>Unidad</p>
       <SegmentedControl<Unidad> options={UNIDAD_OPTIONS} value={unidad} onChange={setUnidad} />

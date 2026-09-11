@@ -98,6 +98,7 @@ export function IngredientesScreen() {
     return (
       <IngredienteDetail
         ingrediente={selected}
+        ingredientes={ingredientes}
         usageCount={usageCount(selected.id)}
         onSave={handleUpdate}
         onDelete={() => handleDelete(selected.id)}
@@ -116,6 +117,10 @@ export function IngredientesScreen() {
           if (e.key === 'Enter' && query.trim() && !exactMatch) handleCreate();
         }}
       />
+
+      {query.trim() && exactMatch && (
+        <p className={sharedStyles.emptyHint}>Ya existe un ingrediente con este nombre, lo tienes debajo.</p>
+      )}
 
       <div className={sharedStyles.group}>
         {query.trim() && !exactMatch && (

@@ -131,6 +131,12 @@
   border-color: var(--color-accent);
 }
 
+.nombreWarning {
+  font-size: 13px;
+  color: var(--color-danger);
+  margin: 4px 4px 8px;
+}
+
 .inlineCreateError {
   font-size: 13px;
   color: var(--color-danger);

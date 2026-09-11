@@ -35,6 +35,10 @@ export function PlatosScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(
     (location.state as { platoId?: string } | null)?.platoId ?? null,
   );
+  // Un plato recién creado con "+" vive solo aquí hasta que se pulsa "Guardar cambios" — no se
+  // escribe en IndexedDB al crearlo (a diferencia de antes), así que "atrás" sin guardar no deja
+  // rastro y no hace falta revertir nada.
+  const [draftPlato, setDraftPlato] = useState<Plato | null>(null);
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas(), getAllCategorias()]).then(
@@ -48,12 +52,19 @@ export function PlatosScreen() {
     );
   }, []);
 
-  const selectedPlato = platos.find((p) => p.id === selectedId) ?? null;
+  const selectedPlato =
+    draftPlato && draftPlato.id === selectedId ? draftPlato : (platos.find((p) => p.id === selectedId) ?? null);
 
   useEffect(() => {
     if (selectedPlato) {
-      setTitle(selectedPlato.nombre);
-      setTopLeftBack({ label: 'Platos', onClick: () => setSelectedId(null) });
+      setTitle(draftPlato ? 'Nuevo plato' : selectedPlato.nombre);
+      setTopLeftBack({
+        label: 'Platos',
+        onClick: () => {
+          setDraftPlato(null);
+          setSelectedId(null);
+        },
+      });
       setTopRightAction(null);
     } else {
       setTitle(null);
@@ -65,7 +76,7 @@ export function PlatosScreen() {
       setTopLeftBack(null);
       setTopRightAction(null);
     };
-  }, [selectedPlato, setTitle, setTopLeftBack, setTopRightAction, navigate]);
+  }, [selectedPlato, draftPlato, setTitle, setTopLeftBack, setTopRightAction, navigate]);
 
   const filtered = useMemo(() => {
     const sorted = [...platos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -74,29 +85,32 @@ export function PlatosScreen() {
     return sorted.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [platos, query]);
 
-  async function handleCreate() {
+  function handleCreate() {
     const plato: Plato = {
       id: newId(),
-      nombre: 'Nuevo plato',
+      nombre: '',
       ingredientes: [],
       notas: '',
       categoriaIds: [],
       tipo: 'ambas',
     };
-    await savePlato(plato);
-    setPlatos((prev) => [...prev, plato]);
+    setDraftPlato(plato);
     setSelectedId(plato.id);
   }
 
   async function handleUpdatePlato(plato: Plato) {
     await savePlato(plato);
-    setPlatos((prev) => prev.map((p) => (p.id === plato.id ? plato : p)));
+    setPlatos((prev) =>
+      prev.some((p) => p.id === plato.id) ? prev.map((p) => (p.id === plato.id ? plato : p)) : [...prev, plato],
+    );
+    setDraftPlato(null);
     setSelectedId(null);
   }
 
   async function handleDeletePlato(id: string) {
     await deletePlato(id);
     setPlatos((prev) => prev.filter((p) => p.id !== id));
+    setDraftPlato(null);
     setSelectedId(null);
   }
 
@@ -125,6 +139,7 @@ export function PlatosScreen() {
     return (
       <PlatoDetail
         plato={selectedPlato}
+        platos={platos}
         ingredientes={ingredientes}
         categorias={categorias}
         usageCount={comidas.filter((c) => c.platoId === selectedPlato.id).length}

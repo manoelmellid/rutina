@@ -4,10 +4,12 @@ import styles from './PlatoDetail.module.css';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { CategoriaPicker } from './CategoriaPicker';
 import { parseCantidad, UNIDAD_LABEL } from '../../lib/units';
+import { hayCoincidencia } from '../../lib/nombres';
 import type { Categoria, Ingrediente, Plato, PlatoIngrediente, PlatoTipo, Unidad } from '../../lib/db';
 
 interface PlatoDetailProps {
   plato: Plato;
+  platos: Plato[];
   ingredientes: Ingrediente[];
   categorias: Categoria[];
   usageCount: number;
@@ -35,6 +37,7 @@ const UNIDAD_OPTIONS: { value: Unidad; label: string }[] = [
 
 export function PlatoDetail({
   plato,
+  platos,
   ingredientes,
   categorias,
   usageCount,
@@ -71,6 +74,8 @@ export function PlatoDetail({
   const exactIngredienteMatch = ingredientes.some(
     (ing) => ing.nombre.toLowerCase() === addQuery.trim().toLowerCase(),
   );
+
+  const nombreDuplicado = hayCoincidencia(nombre, platos, plato.id);
 
   function resetNewForm() {
     setAddQuery('');
@@ -136,10 +141,11 @@ export function PlatoDetail({
     <div>
       <input
         className={sharedStyles.search}
-        placeholder="Nombre del plato…"
+        placeholder="Nuevo plato"
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
       />
+      {nombreDuplicado && <p className={styles.nombreWarning}>Ya existe un plato con este nombre.</p>}
 
       <p className={styles.sectionLabel}>Tipo</p>
       <div className={styles.tipoRow}>
@@ -239,6 +245,10 @@ export function PlatoDetail({
             </div>
           )}
 
+          {exactIngredienteMatch && (
+            <p className={styles.nombreWarning}>Ya existe un ingrediente con este nombre.</p>
+          )}
+
           {!exactIngredienteMatch && (
             <div className={styles.inlineCreate}>
               <p className={styles.inlineCreateTitle}>Crear "{addQuery.trim()}"</p>
@@ -300,7 +310,7 @@ export function PlatoDetail({
         onClick={() =>
           onSave({
             ...plato,
-            nombre: nombre.trim() || plato.nombre,
+            nombre: nombre.trim() || 'Nuevo plato',
             ingredientes: items,
             notas,
             tipo,
