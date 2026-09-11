@@ -4,12 +4,13 @@ import styles from './MesScreen.module.css';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComida } from '../lib/db';
 
-// 2 semanas antes, actual, 2 después — centra "hoy" en vez de dejarlo siempre al principio.
-// Con menos de 5 el contenido apenas desborda el alto disponible (~18px con 3 en un iPhone real,
-// comprobado con el indicador de depuración): el scroll técnicamente funciona pero es
-// imperceptible. Con 5 desborda de sobra (~200px, más de dos semanas enteras) para que el gesto
-// tenga algo real que revelar.
-const WEEK_OFFSETS = [-2, -1, 0, 1, 2];
+// Rango amplio (~2 meses a cada lado) para poder navegar de verdad — "obviamente no pueden ser
+// solo 5 semanas". Solo VISIBLE_WEEKS se ven a la vez (el alto de .weekRow en el CSS está
+// calculado para que encajen exactamente 3, ver el calc() ahí — si cambias este número, cambia
+// también el divisor en el CSS). El scroll es "por páginas": arrastre libre, pero al soltar
+// siempre encaja en un múltiplo de VISIBLE_WEEKS semanas completas, nunca a medias.
+const WEEK_RANGE = 8; // semanas antes/después de la actual
+const VISIBLE_WEEKS = 3;
 const DIAS_LABEL = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const TIPOS: TipoComida[] = ['comida', 'cena'];
 
@@ -35,6 +36,21 @@ function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>):
 }
 
 /**
+ * Mide la distancia real en pantalla entre el inicio de dos semanas consecutivas. OJO: las
+ * semanas se apilan en el eje LOCAL vertical de `.weeksScroll` (flex-direction: column), que tras
+ * la rotación de 90° corresponde al eje HORIZONTAL de pantalla (izquierda/derecha), no al
+ * vertical — por eso se compara `.left`, no `.top` (ver la derivación completa en
+ * MesScreen.module.css, la misma razón por la que el arrastre usa `clientX`).
+ */
+function medirPaso(container: HTMLDivElement): number {
+  const filas = container.children;
+  if (filas.length < 2) return 0;
+  const r0 = filas[0].getBoundingClientRect();
+  const r1 = filas[1].getBoundingClientRect();
+  return Math.abs(r1.left - r0.left);
+}
+
+/**
  * Carcasa "rotada" de verdad: el manifest fuerza `orientation: portrait` (el dispositivo nunca
  * gira solo), así que esta pantalla finge el horizontal con CSS (`transform: rotate(90deg)`, ver
  * `.module.css`) en vez de esperar a una rotación real. Por eso vive FUERA de `<Layout>` en
@@ -49,9 +65,14 @@ export function MesScreen() {
   const weeksScrollRef = useRef<HTMLDivElement | null>(null);
 
   const semanas = useMemo(
-    () => WEEK_OFFSETS.map((offset) => ({ offset, dias: getWeekDays(offset) })),
+    () =>
+      Array.from({ length: WEEK_RANGE * 2 + 1 }, (_, i) => i - WEEK_RANGE).map((offset) => ({
+        offset,
+        dias: getWeekDays(offset),
+      })),
     [],
   );
+  const indiceHoy = WEEK_RANGE; // offset 0 siempre cae en este índice del array
 
   useEffect(() => {
     const desde = toISODate(semanas[0].dias[0]);
@@ -63,17 +84,37 @@ export function MesScreen() {
     });
   }, [semanas]);
 
+  // Coloca "hoy" como la semana central de las VISIBLE_WEEKS visibles al aterrizar (sin animar —
+  // es la posición de partida, no una transición). Mismo patrón de doble rAF + retry que el
+  // scroll-a-hoy de ComidasScreen, por si el layout aún no está medible en el primer intento.
+  useEffect(() => {
+    if (loading) return;
+    function colocar() {
+      const el = weeksScrollRef.current;
+      if (!el) return;
+      const paso = medirPaso(el);
+      if (paso > 0) el.scrollTop = (indiceHoy - 1) * paso;
+    }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(colocar);
+    });
+    const retry = setTimeout(colocar, 350);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(retry);
+    };
+  }, [loading, indiceHoy]);
+
   // El scroll nativo por gesto táctil no atraviesa de forma fiable un ancestro con
   // `transform: rotate(...)` en iOS (WebKit) — se lleva a mano. Los listeners van en `window`
-  // (no en `.weeksScroll`) a propósito: un elemento DESCENDIENTE de un ancestro rotado puede
-  // tener el hit-testing táctil de WebKit poco fiable (el toque real puede no llegar a
-  // dispararle nada, aunque el código del handler sea correcto — así se explica que el intento
-  // anterior, ya con los listeners bien enganchados, siguiera sin reaccionar en el iPhone).
-  // `window` siempre recibe el toque pase lo que pase; aquí se comprueba a mano con
-  // `getBoundingClientRect()` (que sí devuelve la posición real en pantalla, post-rotación) si
-  // cayó dentro de `.weeksScroll` antes de arrastrar. El eje vertical propio de `.weeksScroll`
-  // (donde se apilan las semanas) corresponde, tras la rotación de 90°, a un arrastre HORIZONTAL
-  // físico (ver derivación más abajo), así que el delta de `clientX` es lo que mueve `scrollTop`.
+  // (no en `.weeksScroll`) porque un elemento DESCENDIENTE de un ancestro rotado puede tener el
+  // hit-testing táctil de WebKit poco fiable; `window` siempre recibe el toque, y aquí se
+  // comprueba a mano con `getBoundingClientRect()` si cayó dentro de `.weeksScroll` antes de
+  // arrastrar. Durante el arrastre el scroll es libre (sigue al dedo 1:1); al soltar, encaja en
+  // el múltiplo de semana completa más cercano en la dirección del arrastre neto (o vuelve a la
+  // posición de partida si el arrastre fue muy corto) — nunca deja una semana a medias.
   useEffect(() => {
     let dragging = false;
     let startX = 0;
@@ -94,11 +135,27 @@ export function MesScreen() {
     function onTouchMove(e: TouchEvent) {
       const el = weeksScrollRef.current;
       if (!dragging || !el) return;
-      el.scrollTop = startTop + (startX - e.touches[0].clientX);
+      el.scrollTop = startTop - (startX - e.touches[0].clientX);
       e.preventDefault();
     }
     function onTouchEnd() {
+      const el = weeksScrollRef.current;
+      const arrastraba = dragging;
       dragging = false;
+      if (!arrastraba || !el) return;
+
+      const paso = medirPaso(el);
+      if (paso <= 0) return;
+      const indiceInicial = Math.round(startTop / paso);
+      const indiceActual = el.scrollTop / paso;
+      const umbral = 0.2; // fracción de una semana que hay que arrastrar para cambiar de página
+      let indiceObjetivo = indiceInicial;
+      if (indiceActual > indiceInicial + umbral) indiceObjetivo = indiceInicial + 1;
+      else if (indiceActual < indiceInicial - umbral) indiceObjetivo = indiceInicial - 1;
+
+      const indiceMaximo = semanas.length - VISIBLE_WEEKS;
+      indiceObjetivo = Math.max(0, Math.min(indiceObjetivo, indiceMaximo));
+      el.scrollTo({ top: indiceObjetivo * paso, behavior: 'smooth' });
     }
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -111,11 +168,10 @@ export function MesScreen() {
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
     };
-    // `window` existe siempre — a diferencia del intento anterior (listener en `.weeksScroll`),
-    // ya no depende de que ese elemento exista en el DOM al enganchar, pero se deja `loading` en
-    // las deps igualmente: hasta que `!loading`, `weeksScrollRef.current` es `null` y
-    // `onTouchStart` no tiene nada contra lo que comprobar el rect.
-  }, [loading]);
+    // `.weeksScroll` solo existe en el DOM cuando `!loading` — sin `loading` en las deps, este
+    // efecto se ejecuta una vez con `weeksScrollRef.current` todavía `null` y nunca vuelve a
+    // intentarlo (bug real ya visto una vez, ver CLAUDE.md).
+  }, [loading, semanas]);
 
   const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
   const comidaByKey = useMemo(() => new Map(comidas.map((c) => [c.id, c])), [comidas]);

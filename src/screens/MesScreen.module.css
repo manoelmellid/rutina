@@ -67,8 +67,10 @@
 
 /* Las semanas viven en su propio scroll — el header de días de la semana se queda fijo arriba.
    Con el contenido rotado 90°, desplazarse por este eje (vertical en las coordenadas propias de
-   la caja) se siente como un swipe horizontal en la pantalla real: más semanas de las que caben
-   se deslizan en vez de recortarse.
+   la caja) se siente como un swipe horizontal en la pantalla real: rango amplio de semanas
+   (WEEK_RANGE en MesScreen.tsx) navegable por páginas de VISIBLE_WEEKS (3) — arrastre libre,
+   pero al soltar siempre encaja en un múltiplo de 3 semanas completas (lógica de "página más
+   cercana" en MesScreen.tsx), nunca deja una semana a medias.
    `overflow-y: auto` sigue haciendo falta para el recorte/renderizado del scroll (clipa el
    contenido y traduce visualmente según `scrollTop`, sea cual sea el mecanismo que lo cambie),
    pero el GESTO táctil nativo de iOS no atraviesa de forma fiable un ancestro con `transform:
@@ -87,12 +89,16 @@
   gap: 4px;
 }
 
+/* Alto fijo (no min-height) para que SIEMPRE se vean exactamente 3 semanas completas, ni más ni
+   menos — calc a mano: 3 filas + 2 huecos de 4px entre ellas dentro del alto de .weeksScroll.
+   VISIBLE_WEEKS en MesScreen.tsx es la fuente de verdad; si cambia el número de semanas visibles,
+   este calc (divisor y resta) tiene que cambiar con él. */
 .weekRow {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   flex-shrink: 0;
-  min-height: 92px;
+  height: calc((100% - 8px) / 3);
 }
 
 .cell {
