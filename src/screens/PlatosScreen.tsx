@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { PlatoDetail } from '../features/comidas/PlatoDetail';
 import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
+import { IconPlus } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import {
   deletePlato,
@@ -26,7 +27,7 @@ export function PlatosScreen() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const { setTopLeftBack, setTitle } = useOutletContext<LayoutContext>();
+  const { setTopLeftBack, setTitle, setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
   const location = useLocation();
   // Se puede llegar aquí con un plato concreto ya elegido (ej. tocar la ficha desde
@@ -53,15 +54,18 @@ export function PlatosScreen() {
     if (selectedPlato) {
       setTitle(selectedPlato.nombre);
       setTopLeftBack({ label: 'Platos', onClick: () => setSelectedId(null) });
+      setTopRightAction(null);
     } else {
       setTitle(null);
       setTopLeftBack({ label: 'Comidas', onClick: () => navigate('/comidas') });
+      setTopRightAction({ icon: <IconPlus />, label: 'Crear plato', onClick: () => handleCreate() });
     }
     return () => {
       setTitle(null);
       setTopLeftBack(null);
+      setTopRightAction(null);
     };
-  }, [selectedPlato, setTitle, setTopLeftBack, navigate]);
+  }, [selectedPlato, setTitle, setTopLeftBack, setTopRightAction, navigate]);
 
   const filtered = useMemo(() => {
     const sorted = [...platos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -70,14 +74,10 @@ export function PlatosScreen() {
     return sorted.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [platos, query]);
 
-  const exactMatch = platos.some((p) => p.nombre.toLowerCase() === query.trim().toLowerCase());
-
   async function handleCreate() {
-    const nombre = query.trim();
-    if (!nombre) return;
     const plato: Plato = {
       id: newId(),
-      nombre,
+      nombre: 'Nuevo plato',
       ingredientes: [],
       notas: '',
       categoriaIds: [],
@@ -85,7 +85,6 @@ export function PlatosScreen() {
     };
     await savePlato(plato);
     setPlatos((prev) => [...prev, plato]);
-    setQuery('');
     setSelectedId(plato.id);
   }
 
@@ -141,22 +140,17 @@ export function PlatosScreen() {
     <div>
       <input
         className={sharedStyles.search}
-        placeholder="Buscar o crear plato…"
+        placeholder="Buscar plato…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && query.trim() && !exactMatch) handleCreate();
-        }}
       />
 
       <div className={sharedStyles.group}>
-        {query.trim() && !exactMatch && (
-          <button type="button" className={`${sharedStyles.row} ${sharedStyles.rowAccent}`} onClick={handleCreate}>
-            + Crear "{query.trim()}"
-          </button>
-        )}
         {filtered.length === 0 && !query.trim() && (
-          <p className={sharedStyles.emptyHint}>Aún no tienes platos. Escribe uno arriba para crearlo.</p>
+          <p className={sharedStyles.emptyHint}>Aún no tienes platos. Usa "+" para crear el primero.</p>
+        )}
+        {filtered.length === 0 && query.trim() && (
+          <p className={sharedStyles.emptyHint}>Ningún plato coincide con "{query.trim()}".</p>
         )}
         {filtered.map((p) => (
           <button key={p.id} type="button" className={sharedStyles.row} onClick={() => setSelectedId(p.id)}>
