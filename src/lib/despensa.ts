@@ -1,5 +1,5 @@
 import { formatCantidad } from './units';
-import { formatFullDayLabel, parseISODate } from './week';
+import { addDays, formatFullDayLabel, parseISODate } from './week';
 import type { Comida, DespensaEntry, Ingrediente, Plato } from './db';
 
 /** Los lotes de un ingrediente en la despensa. Modelo de 2 lotes: sin abrir + abierto. */
@@ -70,6 +70,55 @@ export function ingredientesEnPlan(comidas: Comida[], platos: Map<string, Plato>
     const plato = platos.get(c.platoId);
     if (!plato) continue;
     for (const pi of plato.ingredientes) ids.add(pi.ingredienteId);
+  }
+  return ids;
+}
+
+/** "Caduca pronto" si quedan ≤ N días (o ya caducó). Fijo, sin UI para cambiarlo (decisión F6). */
+export const UMBRAL_CADUCIDAD_DIAS = 3;
+
+function atMidnight(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Días hasta que caduque un lote, o `null` si no aplica: sin abrir (nunca tiene fecha,
+ * `abiertoEl === null`) o el ingrediente no trackea vida útil (`diasAbierto === null`). Negativo
+ * = ya caducado hace ese número de días. No hay tope superior: un lote olvidado hace meses
+ * simplemente da un número negativo grande — misma filosofía tolerante que el resto de Despensa
+ * (no es una fuente de verdad estricta, se corrige a mano cuando hace falta).
+ */
+export function diasHastaCaducar(
+  entry: DespensaEntry,
+  ing: Ingrediente | undefined,
+  hoy: Date,
+): number | null {
+  if (!ing || entry.abiertoEl === null || ing.diasAbierto === null) return null;
+  const caduca = addDays(parseISODate(entry.abiertoEl), ing.diasAbierto);
+  return Math.round((atMidnight(caduca).getTime() - atMidnight(hoy).getTime()) / 86_400_000);
+}
+
+/** "Caducado hace 2 días" / "Caduca hoy" / "Caduca mañana" / "Caduca en 5 días". */
+export function etiquetaCaducidad(dias: number): string {
+  if (dias < 0) return `Caducado hace ${-dias} día${-dias === 1 ? '' : 's'}`;
+  if (dias === 0) return 'Caduca hoy';
+  if (dias === 1) return 'Caduca mañana';
+  return `Caduca en ${dias} días`;
+}
+
+export function esUrgente(dias: number | null): boolean {
+  return dias !== null && dias <= UMBRAL_CADUCIDAD_DIAS;
+}
+
+/** ingredienteIds cuyo lote abierto caduca pronto (o ya caducó) — para sesgar el generador. */
+export function ingredientesUrgentes(
+  despensa: DespensaEntry[],
+  ingredientes: Map<string, Ingrediente>,
+  hoy: Date,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const e of despensa) {
+    if (esUrgente(diasHastaCaducar(e, ingredientes.get(e.ingredienteId), hoy))) ids.add(e.ingredienteId);
   }
   return ids;
 }
