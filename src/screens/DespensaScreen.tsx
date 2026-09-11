@@ -165,6 +165,9 @@ export function DespensaScreen() {
                     {esUrgente(diasCaducidad) && (
                       <span className={styles.caducaBadge}>{etiquetaCaducidad(diasCaducidad!)}</span>
                     )}
+                    {grupo.abierto && grupo.abierto.cantidad < 0 && (
+                      <span className={styles.caducaBadge}>Debe</span>
+                    )}
                   </span>
                   <span className={sharedStyles.rowSecondary}>{resumenLotes(grupo, ing)}</span>
                 </span>
@@ -357,6 +360,7 @@ function LoteRow({
   );
   const [confirming, setConfirming] = useState(false);
   const diasCaducidad = diasHastaCaducar(lote, ing, new Date());
+  const enDeficit = lote.cantidad < 0;
 
   function commit() {
     if (!ing) return;
@@ -376,7 +380,7 @@ function LoteRow({
     <div className={sharedStyles.row}>
       <span className={styles.rowMain}>
         <input
-          className={styles.loteInput}
+          className={`${styles.loteInput} ${enDeficit ? styles.loteInputDeficit : ''}`}
           value={draft}
           inputMode="decimal"
           onChange={(e) => setDraft(e.target.value)}
@@ -385,7 +389,7 @@ function LoteRow({
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
         />
-        <span className={sharedStyles.rowSecondary}>
+        <span className={enDeficit ? styles.deficitText : sharedStyles.rowSecondary}>
           {etiquetaLote(lote)}
           {diasCaducidad !== null && (
             <>

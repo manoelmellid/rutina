@@ -334,14 +334,18 @@ export async function deleteDespensaEntry(id: string): Promise<void> {
 interface DespensaStoreLike {
   index(name: 'by-ingrediente'): { getAll(key: string): Promise<DespensaEntry[]> };
   put(value: DespensaEntry): Promise<string>;
+  delete(key: string): Promise<void>;
 }
 
 /**
  * Fusiona `candidate` en el store dado: si ya hay una entrada del mismo ingrediente con el mismo
- * estado de apertura, le suma la cantidad (un bote más = "2 botes, N g") conservando el `id`
- * existente; si no, inserta `candidate` tal cual. Extraído para que `addToDespensa` y el modo
- * "fusionar" de `importBackup` (`backup.ts`) compartan la misma lógica de fusión sobre un store ya
- * abierto — evita anidar una transacción nueva dentro de la transacción grande del import.
+ * estado de apertura, le suma la cantidad (un bote más = "2 botes, N g"; o compensa un déficit —
+ * ver `consumirDeDespensa` — si la entrada existente estaba en negativo) conservando el `id`
+ * existente; si la suma da 0, se borra (mismo invariante de "nunca hay filas a 0" que ya se
+ * aplicaba antes de que existieran los déficits). Si no había entrada, inserta `candidate` tal
+ * cual. Extraído para que `addToDespensa` y el modo "fusionar" de `importBackup` (`backup.ts`)
+ * compartan la misma lógica de fusión sobre un store ya abierto — evita anidar una transacción
+ * nueva dentro de la transacción grande del import.
  */
 export async function mergeDespensaEntryInto(
   store: DespensaStoreLike,
@@ -351,7 +355,9 @@ export async function mergeDespensaEntryInto(
   const abierto = candidate.abiertoEl !== null;
   const match = existing.find((e) => (e.abiertoEl !== null) === abierto);
   if (match) {
-    await store.put({ ...match, cantidad: match.cantidad + candidate.cantidad });
+    const cantidad = match.cantidad + candidate.cantidad;
+    if (cantidad === 0) await store.delete(match.id);
+    else await store.put({ ...match, cantidad });
   } else {
     await store.put(candidate);
   }
@@ -380,10 +386,15 @@ export async function addToDespensa(
 
 /**
  * Resta `cantidad` de la despensa de un ingrediente para reflejar que se ha cocinado. Tira
- * primero del lote "abierto"; si no alcanza, tira del "sin abrir" — y ese paquete, si se toca,
- * pasa entero a "abierto" (no se abre media unidad, igual que en Compra/F4). Nunca deja cantidades
- * negativas: si no hay suficiente, se resta lo que haya y punto (mismo estilo tolerante que la
- * reconciliación de Compra). Las entradas que quedan a 0 se borran.
+ * primero del lote "abierto"; si no alcanza para esta consumición, tira del "sin abrir" — y ese
+ * paquete pasa entero a "abierto" (no se abre media unidad, igual que en Compra/F4); si ya
+ * alcanzaba con lo abierto, el "sin abrir" ni se toca.
+ *
+ * Puede dejar la cantidad en **negativo**: significa que se ha cocinado más de lo que la despensa
+ * tenía registrado (un plato usó un ingrediente sin que estuviera bien anotado). No es un error —
+ * se muestra en rojo en Despensa como "debe X" y se compensa solo la próxima vez que se añada ese
+ * ingrediente (Compra o a mano), porque `addToDespensa`/`mergeDespensaEntryInto` suman sobre la
+ * entrada existente. Las entradas que netean a 0 se borran (nunca hay filas a 0 en `despensa`).
  */
 export async function consumirDeDespensa(ingredienteId: string, cantidad: number): Promise<void> {
   const db = await getDB();
@@ -393,26 +404,18 @@ export async function consumirDeDespensa(ingredienteId: string, cantidad: number
   const abierto = entries.find((e) => e.abiertoEl !== null);
   const sinAbrir = entries.find((e) => e.abiertoEl === null);
 
-  let restante = cantidad;
   let cantidadAbierto = abierto?.cantidad ?? 0;
-  if (abierto) {
-    const usado = Math.min(cantidadAbierto, restante);
-    cantidadAbierto -= usado;
-    restante -= usado;
-  }
 
-  if (sinAbrir) {
-    // Se toca el paquete sin abrir: pase lo que pase, se abre entero. Lo que sobre tras cubrir
-    // el resto del déficit se une al lote abierto (el mismo paquete, ya abierto).
-    const sobrante = Math.max(sinAbrir.cantidad - restante, 0);
-    cantidadAbierto += sobrante;
+  if (sinAbrir && cantidadAbierto < cantidad) {
+    cantidadAbierto += sinAbrir.cantidad;
     await store.delete(sinAbrir.id);
   }
+  cantidadAbierto -= cantidad;
 
   if (abierto) {
-    if (cantidadAbierto > 0) await store.put({ ...abierto, cantidad: cantidadAbierto });
-    else await store.delete(abierto.id);
-  } else if (cantidadAbierto > 0) {
+    if (cantidadAbierto === 0) await store.delete(abierto.id);
+    else await store.put({ ...abierto, cantidad: cantidadAbierto });
+  } else if (cantidadAbierto !== 0) {
     await store.put({
       id: newId(),
       ingredienteId,

@@ -53,6 +53,20 @@ function toNumberOrZero(v: unknown): number {
   return 0;
 }
 
+/**
+ * Como `toNumberOrZero` pero permite negativos — solo para `DespensaEntry.cantidad`, que puede
+ * quedar en déficit (`consumirDeDespensa` en db.ts). En todo lo demás (cantidades de receta,
+ * artículos de compra...) negativo sigue sin tener sentido y se sigue usando `toNumberOrZero`.
+ */
+function toFiniteNumberOrZero(v: unknown): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const n = parseFloat(v.replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 /** Backfills an ingrediente row to the current shape. Shared by `upgrade()` and `importBackup()`. */
 export function normalizeIngrediente(raw: Partial<Ingrediente> & { id: string }): Ingrediente {
   return {
@@ -77,7 +91,7 @@ export function normalizeDespensaEntry(
   return {
     id: raw.id,
     ingredienteId: String(raw.ingredienteId ?? ''),
-    cantidad: toNumberOrZero(raw.cantidad),
+    cantidad: toFiniteNumberOrZero(raw.cantidad),
     abiertoEl: typeof raw.abiertoEl === 'string' && raw.abiertoEl ? raw.abiertoEl : null,
   };
 }

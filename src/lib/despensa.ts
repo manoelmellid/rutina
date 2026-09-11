@@ -42,20 +42,28 @@ export function agruparDespensa(
  *   solo sin abrir → "1 kg"
  *   solo abierto    → "320 g abierto"
  *   los dos         → "1 kg + 320 g abierto"
+ *   en déficit       → "debe 50 g" (ver `consumirDeDespensa` en db.ts)
  *   sin catálogo    → cantidad total en crudo
  */
 export function resumenLotes(l: LotesDeIngrediente, ing: Ingrediente | undefined): string {
   if (!ing) return String(l.total);
   const partes: string[] = [];
   if (l.sinAbrir) partes.push(formatCantidad(l.sinAbrir.cantidad, ing.unidad));
-  if (l.abierto) partes.push(`${formatCantidad(l.abierto.cantidad, ing.unidad)} abierto`);
+  if (l.abierto) {
+    partes.push(
+      l.abierto.cantidad < 0
+        ? `debe ${formatCantidad(-l.abierto.cantidad, ing.unidad)}`
+        : `${formatCantidad(l.abierto.cantidad, ing.unidad)} abierto`,
+    );
+  }
   return partes.join(' + ');
 }
 
-/** "Abierto el viernes 12 sept" / "Sin abrir" para el detalle. */
+/** "Abierto el viernes 12 sept" / "En déficit desde viernes 12 sept" / "Sin abrir". */
 export function etiquetaLote(e: DespensaEntry): string {
   if (!e.abiertoEl) return 'Sin abrir';
-  return `Abierto el ${formatFullDayLabel(parseISODate(e.abiertoEl)).toLowerCase()}`;
+  const fecha = formatFullDayLabel(parseISODate(e.abiertoEl)).toLowerCase();
+  return e.cantidad < 0 ? `En déficit desde ${fecha}` : `Abierto el ${fecha}`;
 }
 
 /**
@@ -83,7 +91,8 @@ function atMidnight(d: Date): Date {
 
 /**
  * Días hasta que caduque un lote, o `null` si no aplica: sin abrir (nunca tiene fecha,
- * `abiertoEl === null`) o el ingrediente no trackea vida útil (`diasAbierto === null`). Negativo
+ * `abiertoEl === null`), el ingrediente no trackea vida útil (`diasAbierto === null`), o el lote
+ * está en déficit (`cantidad <= 0` — es una deuda, no comida física que pueda caducar). Negativo
  * = ya caducado hace ese número de días. No hay tope superior: un lote olvidado hace meses
  * simplemente da un número negativo grande — misma filosofía tolerante que el resto de Despensa
  * (no es una fuente de verdad estricta, se corrige a mano cuando hace falta).
@@ -93,7 +102,7 @@ export function diasHastaCaducar(
   ing: Ingrediente | undefined,
   hoy: Date,
 ): number | null {
-  if (!ing || entry.abiertoEl === null || ing.diasAbierto === null) return null;
+  if (!ing || entry.abiertoEl === null || ing.diasAbierto === null || entry.cantidad <= 0) return null;
   const caduca = addDays(parseISODate(entry.abiertoEl), ing.diasAbierto);
   return Math.round((atMidnight(caduca).getTime() - atMidnight(hoy).getTime()) / 86_400_000);
 }

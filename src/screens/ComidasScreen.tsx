@@ -220,7 +220,11 @@ export function ComidasScreen() {
     const fechas = [...new Set(slots.map((s) => s.fecha))].sort();
     if (fechas.length === 0) return;
     const rango = { desde: fechas[0], hasta: fechas[fechas.length - 1] };
-    const despensaIngredienteIds = new Set(despensa.map((e) => e.ingredienteId));
+    // Un ingrediente en déficit (cantidad negativa, ver consumirDeDespensa en db.ts) no cuenta
+    // como "hay algo en la despensa" — no hay comida física, es una deuda.
+    const despensaIngredienteIds = new Set(
+      despensa.filter((e) => e.cantidad > 0).map((e) => e.ingredienteId),
+    );
     const perecederosUrgentesIds = ingredientesUrgentes(despensa, ingredienteById, new Date());
     setGenerateStep('idle');
     setPropuesta(
