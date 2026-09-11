@@ -330,6 +330,33 @@ export async function deleteDespensaEntry(id: string): Promise<void> {
   await db.delete('despensa', id);
 }
 
+/** Minimal shape needed from an `idb` object-store handle to merge a despensa entry into it. */
+interface DespensaStoreLike {
+  index(name: 'by-ingrediente'): { getAll(key: string): Promise<DespensaEntry[]> };
+  put(value: DespensaEntry): Promise<string>;
+}
+
+/**
+ * Fusiona `candidate` en el store dado: si ya hay una entrada del mismo ingrediente con el mismo
+ * estado de apertura, le suma la cantidad (un bote más = "2 botes, N g") conservando el `id`
+ * existente; si no, inserta `candidate` tal cual. Extraído para que `addToDespensa` y el modo
+ * "fusionar" de `importBackup` (`backup.ts`) compartan la misma lógica de fusión sobre un store ya
+ * abierto — evita anidar una transacción nueva dentro de la transacción grande del import.
+ */
+export async function mergeDespensaEntryInto(
+  store: DespensaStoreLike,
+  candidate: DespensaEntry,
+): Promise<void> {
+  const existing = await store.index('by-ingrediente').getAll(candidate.ingredienteId);
+  const abierto = candidate.abiertoEl !== null;
+  const match = existing.find((e) => (e.abiertoEl !== null) === abierto);
+  if (match) {
+    await store.put({ ...match, cantidad: match.cantidad + candidate.cantidad });
+  } else {
+    await store.put(candidate);
+  }
+}
+
 /**
  * Añade una entrada a la despensa. Si ya hay una entrada del mismo ingrediente
  * con el mismo estado de apertura, le suma la cantidad (un bote más = "2 botes,
@@ -342,19 +369,12 @@ export async function addToDespensa(
 ): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('despensa', 'readwrite');
-  const store = tx.objectStore('despensa');
-  const existing = await store.index('by-ingrediente').getAll(ingredienteId);
-  const match = existing.find((e) => (e.abiertoEl !== null) === abierto);
-  if (match) {
-    await store.put({ ...match, cantidad: match.cantidad + cantidad });
-  } else {
-    await store.put({
-      id: newId(),
-      ingredienteId,
-      cantidad,
-      abiertoEl: abierto ? toISODateString(new Date()) : null,
-    });
-  }
+  await mergeDespensaEntryInto(tx.objectStore('despensa'), {
+    id: newId(),
+    ingredienteId,
+    cantidad,
+    abiertoEl: abierto ? toISODateString(new Date()) : null,
+  });
   await tx.done;
 }
 

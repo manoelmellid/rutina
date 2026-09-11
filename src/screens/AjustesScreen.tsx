@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './AjustesScreen.module.css';
-import { exportBackup, importBackup } from '../lib/backup';
+import { exportBackup, importBackup, type ImportMode } from '../lib/backup';
 import {
   clearAllData,
   getAllCategorias,
@@ -21,6 +21,11 @@ const ALCANCE_OPTIONS: { value: AlcanceGenerador; label: string }[] = [
   { value: 'diasAdelante', label: 'Días adelante' },
 ];
 
+const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
+  { value: 'reemplazar', label: 'Sustituir todo' },
+  { value: 'fusionar', label: 'Fusionar' },
+];
+
 const DIAS_SEMANA: { value: number; label: string }[] = [
   { value: 1, label: 'Lunes' },
   { value: 2, label: 'Martes' },
@@ -36,6 +41,7 @@ export function AjustesScreen() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<ImportMode>('reemplazar');
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [prefs, setPrefs] = useState<Preferencias | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -72,8 +78,12 @@ export function AjustesScreen() {
     e.target.value = '';
     if (!file) return;
     try {
-      await importBackup(file);
-      setStatus('Backup restaurado. Recarga la app para ver los datos.');
+      await importBackup(file, importMode);
+      setStatus(
+        importMode === 'fusionar'
+          ? 'Backup fusionado con lo que ya había. Recarga la app para ver los datos.'
+          : 'Backup restaurado. Recarga la app para ver los datos.',
+      );
     } catch {
       setStatus('No se pudo leer ese archivo como backup válido.');
     }
@@ -101,10 +111,20 @@ export function AjustesScreen() {
           Importar backup (.json)
         </button>
       </div>
+      <div className={styles.stackedRow}>
+        <span className={styles.controlLabel}>Al importar</span>
+        <SegmentedControl<ImportMode>
+          options={IMPORT_MODE_OPTIONS}
+          value={importMode}
+          onChange={setImportMode}
+        />
+      </div>
       <p className={styles.hint}>
         El backup sustituye a la sincronización en la nube: descarga un archivo con todos tus datos
         (comidas, compra, ingredientes, categorías y ajustes) y podrás restaurarlo en este u otro
-        dispositivo.
+        dispositivo. "Sustituir todo" borra los datos actuales antes de meter los del archivo;
+        "Fusionar" no borra nada — añade o actualiza por id lo que traiga el archivo (útil para
+        meter platos predefinidos sin perder lo que ya tengas).
       </p>
 
       {prefs && (

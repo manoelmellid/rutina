@@ -1,5 +1,6 @@
 import {
   getDB,
+  mergeDespensaEntryInto,
   type Categoria,
   type Comida,
   type DespensaEntry,
@@ -54,8 +55,18 @@ export async function exportBackup(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-/** Restores from a backup file, replacing all current data. */
-export async function importBackup(file: File): Promise<void> {
+export type ImportMode = 'reemplazar' | 'fusionar';
+
+/**
+ * Restaura un backup. `'reemplazar'` (por defecto) borra todo antes de meter el contenido del
+ * fichero — comportamiento original. `'fusionar'` no borra nada: cada `plato`/`ingrediente`/
+ * `comida`/`item`/`categoria` se inserta o actualiza por `id` (upsert), y cada entrada de
+ * `despensa` se fusiona por `(ingredienteId, abierto)` vía `mergeDespensaEntryInto` (misma lógica
+ * que `addToDespensa`, sumando cantidad si ya había una entrada equivalente) para no romper el
+ * modelo de 2 lotes. Pensado para meter datos predefinidos (platos de prueba, seeds) sin perder lo
+ * que ya hubiera en la app.
+ */
+export async function importBackup(file: File, mode: ImportMode = 'reemplazar'): Promise<void> {
   const text = await file.text();
   const data = JSON.parse(text) as Partial<BackupData>;
 
@@ -69,15 +80,17 @@ export async function importBackup(file: File): Promise<void> {
     'readwrite',
   );
 
-  await Promise.all([
-    tx.objectStore('platos').clear(),
-    tx.objectStore('comidas').clear(),
-    tx.objectStore('listaCompra').clear(),
-    tx.objectStore('ingredientes').clear(),
-    tx.objectStore('categorias').clear(),
-    tx.objectStore('despensa').clear(),
-    tx.objectStore('preferencias').clear(),
-  ]);
+  if (mode === 'reemplazar') {
+    await Promise.all([
+      tx.objectStore('platos').clear(),
+      tx.objectStore('comidas').clear(),
+      tx.objectStore('listaCompra').clear(),
+      tx.objectStore('ingredientes').clear(),
+      tx.objectStore('categorias').clear(),
+      tx.objectStore('despensa').clear(),
+      tx.objectStore('preferencias').clear(),
+    ]);
+  }
 
   for (const plato of data.platos ?? []) {
     await tx.objectStore('platos').put(normalizePlato(plato));
@@ -92,7 +105,12 @@ export async function importBackup(file: File): Promise<void> {
     await tx.objectStore('listaCompra').put(normalizeItemCompra(item));
   }
   for (const entry of data.despensa ?? []) {
-    await tx.objectStore('despensa').put(normalizeDespensaEntry(entry));
+    const normalized = normalizeDespensaEntry(entry);
+    if (mode === 'fusionar') {
+      await mergeDespensaEntryInto(tx.objectStore('despensa'), normalized);
+    } else {
+      await tx.objectStore('despensa').put(normalized);
+    }
   }
 
   const categorias = data.categorias?.length ? data.categorias : CATEGORIAS_SEED;
