@@ -1,28 +1,41 @@
 import styles from './CompraItemRow.module.css';
-import type { ItemCompra } from '../../lib/db';
 
 interface CompraItemRowProps {
-  item: ItemCompra;
+  nombre: string;
+  comprado: boolean;
+  cantidadLabel?: string;
+  origenLabel?: string;
+  avisoObsoleto?: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }
 
-export function CompraItemRow({ item, onToggle, onDelete }: CompraItemRowProps) {
+export function CompraItemRow({
+  nombre,
+  comprado,
+  cantidadLabel,
+  origenLabel,
+  avisoObsoleto,
+  onToggle,
+  onDelete,
+}: CompraItemRowProps) {
   return (
     <div className={styles.row}>
       <button
         type="button"
-        className={`${styles.checkbox} ${item.comprado ? styles.checkboxChecked : ''}`}
+        className={`${styles.checkbox} ${comprado ? styles.checkboxChecked : ''}`}
         onClick={onToggle}
-        aria-label={item.comprado ? 'Marcar como no comprado' : 'Marcar como comprado'}
+        aria-label={comprado ? 'Marcar como no comprado' : 'Marcar como comprado'}
       >
-        {item.comprado && '✓'}
+        {comprado && '✓'}
       </button>
       <button type="button" className={styles.texts} onClick={onToggle}>
-        <p className={`${styles.nombre} ${item.comprado ? styles.nombreComprado : ''}`}>
-          {item.nombre}
+        <p className={`${styles.nombre} ${comprado ? styles.nombreComprado : ''}`}>
+          {nombre}
+          {avisoObsoleto && <span className={styles.avisoObsoleto}>ya no hace falta</span>}
         </p>
-        {item.cantidad && <p className={styles.cantidad}>{item.cantidad}</p>}
+        {cantidadLabel && <p className={styles.cantidad}>{cantidadLabel}</p>}
+        {origenLabel && <p className={styles.origen}>{origenLabel}</p>}
       </button>
       <button type="button" className={styles.deleteButton} onClick={onDelete} aria-label="Eliminar">
         ×
