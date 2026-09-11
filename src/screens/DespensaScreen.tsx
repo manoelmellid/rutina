@@ -138,9 +138,9 @@ export function DespensaScreen() {
   return (
     <div>
       <p className={sharedStyles.dateLabel}>
-        Lo que hay en casa. Se llenará al pulsar “Compra finalizada” (Fase 4); aquí puedes
-        añadir o corregir a mano. Lo marcado <strong>en el plan</strong> lo usa un plato ya
-        asignado esta semana.
+        Lo que hay en casa. Se llena sola al pulsar “Compra finalizada” y al cocinar un plato
+        planificado; aquí puedes añadir o corregir a mano. Lo marcado <strong>en el plan</strong>{' '}
+        lo usa un plato ya asignado esta semana.
       </p>
       {grupos.length === 0 ? (
         <p className={sharedStyles.emptyHint}>La despensa está vacía. Usa “+” para añadir algo.</p>
