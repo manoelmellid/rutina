@@ -9,7 +9,14 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { IconCarta, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
-import { describirAlcance, planificar, slotsObjetivo, type ResultadoGeneracion } from '../lib/generador';
+import {
+  describirAlcance,
+  planificar,
+  rehacerSlot,
+  slotsObjetivo,
+  type GeneradorInput,
+  type ResultadoGeneracion,
+} from '../lib/generador';
 import { sincronizarConsumoComida } from '../lib/consumo';
 import { ingredientesUrgentes } from '../lib/despensa';
 import {
@@ -46,6 +53,7 @@ export function ComidasScreen() {
   const [selection, setSelection] = useState<SlotSelection | null>(null);
   const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'vacio' | 'confirm'>('idle');
   const [propuesta, setPropuesta] = useState<ResultadoGeneracion | null>(null);
+  const [generadorInput, setGeneradorInput] = useState<GeneradorInput | null>(null);
   const [readyToReveal, setReadyToReveal] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
@@ -226,18 +234,25 @@ export function ComidasScreen() {
       despensa.filter((e) => e.cantidad > 0).map((e) => e.ingredienteId),
     );
     const perecederosUrgentesIds = ingredientesUrgentes(despensa, ingredienteById, new Date());
+    const input: GeneradorInput = {
+      slots,
+      platos,
+      comidas,
+      despensaIngredienteIds,
+      perecederosUrgentesIds,
+      semanasAntiRepeticion: prefs.semanasAntiRepeticion,
+      rango,
+    };
     setGenerateStep('idle');
-    setPropuesta(
-      planificar({
-        slots,
-        platos,
-        comidas,
-        despensaIngredienteIds,
-        perecederosUrgentesIds,
-        semanasAntiRepeticion: prefs.semanasAntiRepeticion,
-        rango,
-      }),
-    );
+    setGeneradorInput(input);
+    setPropuesta(planificar(input));
+  }
+
+  function handleRerollSlot(index: number) {
+    if (!propuesta || !generadorInput) return;
+    const nuevoSlot = rehacerSlot(generadorInput, propuesta.propuestas, index);
+    const propuestas = propuesta.propuestas.map((p, i) => (i === index ? nuevoSlot : p));
+    setPropuesta({ propuestas, sinCandidato: propuestas.filter((p) => p.platoId === null).length });
   }
 
   async function handleAceptarPropuesta() {
@@ -295,6 +310,7 @@ export function ComidasScreen() {
         propuesta={propuesta}
         getPlatoNombre={getPlatoNombre}
         onReroll={handleGenerar}
+        onRerollSlot={handleRerollSlot}
         onAccept={handleAceptarPropuesta}
         onCancel={() => setPropuesta(null)}
       />

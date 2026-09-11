@@ -10,6 +10,7 @@ interface PropuestaGeneradorPanelProps {
   propuesta: ResultadoGeneracion;
   getPlatoNombre: (platoId: string) => string;
   onReroll: () => void;
+  onRerollSlot: (index: number) => void;
   onAccept: () => void;
   onCancel: () => void;
 }
@@ -18,6 +19,7 @@ export function PropuestaGeneradorPanel({
   propuesta,
   getPlatoNombre,
   onReroll,
+  onRerollSlot,
   onAccept,
   onCancel,
 }: PropuestaGeneradorPanelProps) {
@@ -40,21 +42,32 @@ export function PropuestaGeneradorPanel({
       </p>
 
       <div className={sharedStyles.group}>
-        {propuesta.propuestas.map((p) => (
-          <div key={`${p.fecha}__${p.tipo}`} className={sharedStyles.row}>
-            <span>
-              {formatFullDayLabel(parseISODate(p.fecha))} · {p.tipo === 'comida' ? 'Comida' : 'Cena'}
-            </span>
-            <span className={styles.rowMain}>
-              <span className={p.platoId ? undefined : styles.sinPlato}>
-                {p.platoId ? getPlatoNombre(p.platoId) : 'Sin plato'}
+        {propuesta.propuestas.map((p, index) => {
+          const etiquetaSlot = `${formatFullDayLabel(parseISODate(p.fecha))} · ${p.tipo === 'comida' ? 'Comida' : 'Cena'}`;
+          return (
+            <div key={`${p.fecha}__${p.tipo}`} className={sharedStyles.row}>
+              <span className={styles.slotInfo}>
+                <span>{etiquetaSlot}</span>
+                <span className={styles.rowMain}>
+                  <span className={p.platoId ? undefined : styles.sinPlato}>
+                    {p.platoId ? getPlatoNombre(p.platoId) : 'Sin plato'}
+                  </span>
+                  {p.perecederoUrgente && (
+                    <span className={styles.motivoCaducidad}>Usa algo que caduca pronto</span>
+                  )}
+                </span>
               </span>
-              {p.perecederoUrgente && (
-                <span className={styles.motivoCaducidad}>Usa algo que caduca pronto</span>
-              )}
-            </span>
-          </div>
-        ))}
+              <button
+                type="button"
+                className={styles.rerollButton}
+                onClick={() => onRerollSlot(index)}
+                aria-label={`Volver a tirar: ${etiquetaSlot}`}
+              >
+                ↻
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {propuesta.sinCandidato > 0 && (

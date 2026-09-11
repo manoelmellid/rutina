@@ -80,16 +80,15 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
 }
 
 /**
- * Sorteo aleatorio y sencillo: filtra por tipo de plato, evita repetir lo usado recientemente
- * (degradando si hace falta), y dentro de eso sesga hacia platos con algún ingrediente ya en
- * la despensa. Puro — no lee ni escribe la base de datos.
+ * Construye el sorteador para un `input` dado: candidatos filtrados por tipo, anti-repetición
+ * (con degradación) y el sesgo caducidad-pronto > despensa > pool tal cual. `usadosEstaTanda` se
+ * pasa por referencia — el llamador decide cuándo añadir un plato elegido (para que la ventana de
+ * "ya usado esta tanda" se pueda componer de comidas reales, de otras filas de una propuesta ya
+ * generada, o de ambas — ver `planificar` y `rehacerSlot`). Compartido para no duplicar la lógica.
  */
-export function planificar(input: GeneradorInput): ResultadoGeneracion {
+function crearElegidor(input: GeneradorInput, usadosEstaTanda: Set<string>) {
   const rng = input.rng ?? Math.random;
-  const comidaByKey = new Map(input.comidas.map((c) => [c.id, c]));
   const platoById = new Map(input.platos.map((p) => [p.id, p]));
-
-  const huecos = input.slots.filter((s) => !comidaByKey.has(comidaId(s.fecha, s.tipo)));
 
   const usadosRecientes = new Set<string>();
   if (input.semanasAntiRepeticion > 0) {
@@ -97,13 +96,6 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
     const hasta = toISODate(addDays(parseISODate(input.rango.desde), -1));
     for (const c of input.comidas) {
       if (c.platoId && c.fecha >= desde && c.fecha <= hasta) usadosRecientes.add(c.platoId);
-    }
-  }
-
-  const usadosEstaTanda = new Set<string>();
-  for (const c of input.comidas) {
-    if (c.platoId && c.fecha >= input.rango.desde && c.fecha <= input.rango.hasta) {
-      usadosEstaTanda.add(c.platoId);
     }
   }
 
@@ -137,6 +129,28 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
     return pickRandom(candidatos, rng);
   }
 
+  return { elegir, usaPerecederoUrgente };
+}
+
+/**
+ * Sorteo aleatorio y sencillo: filtra por tipo de plato, evita repetir lo usado recientemente
+ * (degradando si hace falta), y dentro de eso sesga hacia platos con algún ingrediente ya en
+ * la despensa. Puro — no lee ni escribe la base de datos.
+ */
+export function planificar(input: GeneradorInput): ResultadoGeneracion {
+  const rng = input.rng ?? Math.random;
+  const comidaByKey = new Map(input.comidas.map((c) => [c.id, c]));
+  const huecos = input.slots.filter((s) => !comidaByKey.has(comidaId(s.fecha, s.tipo)));
+
+  const usadosEstaTanda = new Set<string>();
+  for (const c of input.comidas) {
+    if (c.platoId && c.fecha >= input.rango.desde && c.fecha <= input.rango.hasta) {
+      usadosEstaTanda.add(c.platoId);
+    }
+  }
+
+  const { elegir, usaPerecederoUrgente } = crearElegidor(input, usadosEstaTanda);
+
   const propuestas: PropuestaSlot[] = [];
   for (const slot of shuffle(huecos, rng)) {
     const platoId = elegir(slot.tipo);
@@ -156,4 +170,31 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
   });
 
   return { propuestas, sinCandidato: propuestas.filter((p) => p.platoId === null).length };
+}
+
+/**
+ * Vuelve a sortear UNA fila de una propuesta ya generada (botón "volver a tirar" por fila en
+ * `PropuestaGeneradorPanel`), dejando el resto igual. `usadosEstaTanda` se reconstruye con las
+ * comidas reales del rango más los platos de las OTRAS filas de `propuestaActual` (para no
+ * duplicar lo que ya salió en la misma tanda), excluyendo la fila que se está rehaciendo.
+ */
+export function rehacerSlot(
+  input: GeneradorInput,
+  propuestaActual: PropuestaSlot[],
+  index: number,
+): PropuestaSlot {
+  const slot = propuestaActual[index];
+  const usadosEstaTanda = new Set<string>();
+  for (const c of input.comidas) {
+    if (c.platoId && c.fecha >= input.rango.desde && c.fecha <= input.rango.hasta) {
+      usadosEstaTanda.add(c.platoId);
+    }
+  }
+  propuestaActual.forEach((p, i) => {
+    if (i !== index && p.platoId) usadosEstaTanda.add(p.platoId);
+  });
+
+  const { elegir, usaPerecederoUrgente } = crearElegidor(input, usadosEstaTanda);
+  const platoId = elegir(slot.tipo);
+  return { ...slot, platoId, perecederoUrgente: platoId !== null && usaPerecederoUrgente(platoId) };
 }
