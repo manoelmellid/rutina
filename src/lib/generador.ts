@@ -12,6 +12,7 @@ export interface PropuestaSlot {
   fecha: string;
   tipo: TipoComida;
   platoId: string | null; // null = no había ningún plato candidato
+  perecederoUrgente: boolean; // el plato elegido usa un ingrediente que caduca pronto (Fase 6)
 }
 
 export interface ResultadoGeneracion {
@@ -24,6 +25,7 @@ export interface GeneradorInput {
   platos: Plato[];
   comidas: Comida[]; // todas — para anti-repetición y para saltar huecos ya ocupados
   despensaIngredienteIds: Set<string>;
+  perecederosUrgentesIds: Set<string>; // ingredientes con lote abierto que caduca pronto (Fase 6)
   semanasAntiRepeticion: number; // 0 = desactivado
   rango: { desde: string; hasta: string }; // fechas del alcance (para la ventana anti-rep)
   rng?: () => number; // por defecto Math.random
@@ -111,6 +113,12 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
     return plato.ingredientes.some((pi) => input.despensaIngredienteIds.has(pi.ingredienteId));
   }
 
+  function usaPerecederoUrgente(platoId: string): boolean {
+    const plato = platoById.get(platoId);
+    if (!plato) return false;
+    return plato.ingredientes.some((pi) => input.perecederosUrgentesIds.has(pi.ingredienteId));
+  }
+
   function elegir(tipo: TipoComida): string | null {
     const base = input.platos.filter((p) => p.tipo === 'ambas' || p.tipo === tipo).map((p) => p.id);
     if (base.length === 0) return null;
@@ -122,8 +130,10 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
     ];
     const pool = escalones.find((e) => e.length > 0) ?? base;
 
+    // Prioridad: lo que caduca pronto > lo que ya hay en la despensa > el pool tal cual.
+    const conUrgente = pool.filter(usaPerecederoUrgente);
     const conDespensa = pool.filter(usaDespensa);
-    const candidatos = conDespensa.length > 0 ? conDespensa : pool;
+    const candidatos = conUrgente.length > 0 ? conUrgente : conDespensa.length > 0 ? conDespensa : pool;
     return pickRandom(candidatos, rng);
   }
 
@@ -131,7 +141,12 @@ export function planificar(input: GeneradorInput): ResultadoGeneracion {
   for (const slot of shuffle(huecos, rng)) {
     const platoId = elegir(slot.tipo);
     if (platoId) usadosEstaTanda.add(platoId);
-    propuestas.push({ fecha: slot.fecha, tipo: slot.tipo, platoId });
+    propuestas.push({
+      fecha: slot.fecha,
+      tipo: slot.tipo,
+      platoId,
+      perecederoUrgente: platoId !== null && usaPerecederoUrgente(platoId),
+    });
   }
 
   propuestas.sort((a, b) => {

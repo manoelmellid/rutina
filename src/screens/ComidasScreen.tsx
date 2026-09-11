@@ -11,9 +11,11 @@ import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { describirAlcance, planificar, slotsObjetivo, type ResultadoGeneracion } from '../lib/generador';
 import { sincronizarConsumoComida } from '../lib/consumo';
+import { ingredientesUrgentes } from '../lib/despensa';
 import {
   comidaId,
   getAllComidas,
+  getAllIngredientes,
   getAllPlatos,
   getDespensa,
   getPreferencias,
@@ -22,6 +24,7 @@ import {
   type Comida,
   type DespensaEntry,
   type Especial,
+  type Ingrediente,
   type Plato,
   type Preferencias,
   type TipoComida,
@@ -38,6 +41,7 @@ export function ComidasScreen() {
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [prefs, setPrefs] = useState<Preferencias | null>(null);
   const [despensa, setDespensa] = useState<DespensaEntry[]>([]);
+  const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
   const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'vacio' | 'confirm'>('idle');
@@ -51,19 +55,25 @@ export function ComidasScreen() {
   const scrollPosRef = useRef(0);
 
   useEffect(() => {
-    Promise.all([getAllPlatos(), getAllComidas(), getPreferencias(), getDespensa()]).then(
-      ([p, c, pr, d]) => {
-        setPlatos(p);
-        setComidas(c);
-        setPrefs(pr);
-        setDespensa(d);
-        setLoading(false);
-      },
-    );
+    Promise.all([
+      getAllPlatos(),
+      getAllComidas(),
+      getPreferencias(),
+      getDespensa(),
+      getAllIngredientes(),
+    ]).then(([p, c, pr, d, i]) => {
+      setPlatos(p);
+      setComidas(c);
+      setPrefs(pr);
+      setDespensa(d);
+      setIngredientes(i);
+      setLoading(false);
+    });
   }, []);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
+  const ingredienteById = useMemo(() => new Map(ingredientes.map((i) => [i.id, i])), [ingredientes]);
 
   useEffect(() => {
     if (selection || propuesta) {
@@ -211,6 +221,7 @@ export function ComidasScreen() {
     if (fechas.length === 0) return;
     const rango = { desde: fechas[0], hasta: fechas[fechas.length - 1] };
     const despensaIngredienteIds = new Set(despensa.map((e) => e.ingredienteId));
+    const perecederosUrgentesIds = ingredientesUrgentes(despensa, ingredienteById, new Date());
     setGenerateStep('idle');
     setPropuesta(
       planificar({
@@ -218,6 +229,7 @@ export function ComidasScreen() {
         platos,
         comidas,
         despensaIngredienteIds,
+        perecederosUrgentesIds,
         semanasAntiRepeticion: prefs.semanasAntiRepeticion,
         rango,
       }),
