@@ -2,6 +2,7 @@ import type {
   Categoria,
   DespensaEntry,
   Ingrediente,
+  ItemCompra,
   Plato,
   PlatoTipo,
   Preferencias,
@@ -96,5 +97,22 @@ export function normalizePlato(
       ? raw.categoriaIds.filter((c): c is string => typeof c === 'string')
       : [],
     ingredientes,
+  };
+}
+
+/** Backfills un artículo de compra a la forma actual. Compartido por `saveItemCompra`/
+ * `getListaCompra` y `importBackup()`. Las filas antiguas traían `cantidad: ''` (string) y
+ * `origenComidaId` (singular, nunca usado) — `toNumberOrZero('')` da 0 sin más esfuerzo. */
+export function normalizeItemCompra(raw: Partial<ItemCompra> & { id: string }): ItemCompra {
+  return {
+    id: raw.id,
+    nombre: String(raw.nombre ?? ''),
+    cantidad: toNumberOrZero(raw.cantidad),
+    comprado: Boolean(raw.comprado),
+    ingredienteId:
+      typeof raw.ingredienteId === 'string' && raw.ingredienteId ? raw.ingredienteId : undefined,
+    origenComidaIds: Array.isArray(raw.origenComidaIds)
+      ? raw.origenComidaIds.filter((c): c is string => typeof c === 'string')
+      : [],
   };
 }

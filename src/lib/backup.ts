@@ -13,6 +13,7 @@ import {
   PREFERENCIAS_DEFAULT,
   normalizeDespensaEntry,
   normalizeIngrediente,
+  normalizeItemCompra,
   normalizePlato,
 } from './migrations';
 
@@ -87,7 +88,7 @@ export async function importBackup(file: File): Promise<void> {
     await tx.objectStore('comidas').put(comida);
   }
   for (const item of data.listaCompra ?? []) {
-    await tx.objectStore('listaCompra').put(item);
+    await tx.objectStore('listaCompra').put(normalizeItemCompra(item));
   }
   for (const entry of data.despensa ?? []) {
     await tx.objectStore('despensa').put(normalizeDespensaEntry(entry));

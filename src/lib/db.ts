@@ -5,6 +5,7 @@ import {
   PREFERENCIAS_DEFAULT,
   normalizeDespensaEntry,
   normalizeIngrediente,
+  normalizeItemCompra,
   normalizePlato,
 } from './migrations';
 
@@ -61,10 +62,11 @@ export interface Comida {
 
 export interface ItemCompra {
   id: string;
-  nombre: string;
-  cantidad: string;
+  nombre: string; // para manuales, el texto libre; para catálogo, caché de creación / fallback
+  cantidad: number; // 0 = sin especificar (manuales); unidad base del ingrediente si hay ingredienteId
   comprado: boolean;
-  origenComidaId?: string;
+  ingredienteId?: string; // referencia al catálogo; ausente = artículo suelto (manual)
+  origenComidaIds: string[]; // comidas que lo piden; [] en manuales o cuando ya no hace falta
 }
 
 /**
@@ -386,12 +388,13 @@ export async function clearComida(fecha: string, tipo: TipoComida): Promise<void
 
 export async function getListaCompra(): Promise<ItemCompra[]> {
   const db = await getDB();
-  return db.getAll('listaCompra');
+  const rows = await db.getAll('listaCompra');
+  return rows.map(normalizeItemCompra);
 }
 
 export async function saveItemCompra(item: ItemCompra): Promise<void> {
   const db = await getDB();
-  await db.put('listaCompra', item);
+  await db.put('listaCompra', normalizeItemCompra(item));
 }
 
 export async function deleteItemCompra(id: string): Promise<void> {
