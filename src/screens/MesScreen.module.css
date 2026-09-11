@@ -72,9 +72,11 @@
    `overflow-y: auto` sigue haciendo falta para el recorte/renderizado del scroll (clipa el
    contenido y traduce visualmente según `scrollTop`, sea cual sea el mecanismo que lo cambie),
    pero el GESTO táctil nativo de iOS no atraviesa de forma fiable un ancestro con `transform:
-   rotate(...)` — así que `scrollTop` se mueve a mano en MesScreen.tsx (touchstart/touchmove sobre
-   este elemento) en vez de confiar en el reconocimiento de gestos nativo. `touch-action: none`
-   evita que el navegador intente además su propio gesto y compita con el nuestro. */
+   rotate(...)` — así que `scrollTop` se mueve a mano en MesScreen.tsx. Los listeners táctiles
+   viven en `window` (no aquí) precisamente porque este elemento, al ser descendiente del
+   ancestro rotado, puede tener el hit-testing táctil de WebKit poco fiable — ver el comentario
+   largo en MesScreen.tsx. `touch-action: none` evita que el navegador intente además su propio
+   gesto aquí y compita con el nuestro. */
 .weeksScroll {
   flex: 1;
   min-height: 0;

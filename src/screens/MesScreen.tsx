@@ -60,46 +60,57 @@ export function MesScreen() {
   }, [semanas]);
 
   // El scroll nativo por gesto táctil no atraviesa de forma fiable un ancestro con
-  // `transform: rotate(...)` en iOS (WebKit) — se lleva a mano: el eje vertical propio de
-  // `.weeksScroll` (donde se apilan las semanas) corresponde, tras la rotación de 90°, a un
-  // arrastre HORIZONTAL físico (ver derivación en MesScreen.module.css), así que el delta de
-  // `clientX` es lo que mueve `scrollTop`. `touch-action: none` en el CSS le dice al navegador
-  // que no intente su propio gesto aquí, para que no compita con este.
+  // `transform: rotate(...)` en iOS (WebKit) — se lleva a mano. Los listeners van en `window`
+  // (no en `.weeksScroll`) a propósito: un elemento DESCENDIENTE de un ancestro rotado puede
+  // tener el hit-testing táctil de WebKit poco fiable (el toque real puede no llegar a
+  // dispararle nada, aunque el código del handler sea correcto — así se explica que el intento
+  // anterior, ya con los listeners bien enganchados, siguiera sin reaccionar en el iPhone).
+  // `window` siempre recibe el toque pase lo que pase; aquí se comprueba a mano con
+  // `getBoundingClientRect()` (que sí devuelve la posición real en pantalla, post-rotación) si
+  // cayó dentro de `.weeksScroll` antes de arrastrar. El eje vertical propio de `.weeksScroll`
+  // (donde se apilan las semanas) corresponde, tras la rotación de 90°, a un arrastre HORIZONTAL
+  // físico (ver derivación más abajo), así que el delta de `clientX` es lo que mueve `scrollTop`.
   useEffect(() => {
-    const el = weeksScrollRef.current;
-    if (!el) return;
-
     let dragging = false;
     let startX = 0;
     let startTop = 0;
 
     function onTouchStart(e: TouchEvent) {
+      const el = weeksScrollRef.current;
+      const t = e.touches[0];
+      if (!el || !t) return;
+      const rect = el.getBoundingClientRect();
+      if (t.clientX < rect.left || t.clientX > rect.right || t.clientY < rect.top || t.clientY > rect.bottom) {
+        return;
+      }
       dragging = true;
-      startX = e.touches[0].clientX;
-      startTop = el!.scrollTop;
+      startX = t.clientX;
+      startTop = el.scrollTop;
     }
     function onTouchMove(e: TouchEvent) {
-      if (!dragging) return;
-      el!.scrollTop = startTop + (startX - e.touches[0].clientX);
+      const el = weeksScrollRef.current;
+      if (!dragging || !el) return;
+      el.scrollTop = startTop + (startX - e.touches[0].clientX);
       e.preventDefault();
     }
     function onTouchEnd() {
       dragging = false;
     }
 
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('touchcancel', onTouchEnd);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
     };
-    // `.weeksScroll` solo existe en el DOM cuando `!loading` — sin `loading` en las deps, este
-    // efecto se ejecuta una vez con `weeksScrollRef.current` todavía `null` (el montaje real pasa
-    // después) y nunca vuelve a intentarlo: los listeners no se llegan a adjuntar nunca.
+    // `window` existe siempre — a diferencia del intento anterior (listener en `.weeksScroll`),
+    // ya no depende de que ese elemento exista en el DOM al enganchar, pero se deja `loading` en
+    // las deps igualmente: hasta que `!loading`, `weeksScrollRef.current` es `null` y
+    // `onTouchStart` no tiene nada contra lo que comprobar el rect.
   }, [loading]);
 
   const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
