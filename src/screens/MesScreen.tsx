@@ -43,6 +43,10 @@ export function MesScreen() {
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
   const weeksScrollRef = useRef<HTMLDivElement | null>(null);
+  // DEBUG TEMPORAL — diagnóstico del swipe que no reacciona en el iPhone real. Quitar en cuanto
+  // sepamos qué está pasando (ver CLAUDE.md, "Cuarta ronda").
+  const debugRef = useRef({ start: 0, move: 0, drag: 0, rect: '', xy: '', scrollTop: 0 });
+  const [debugText, setDebugText] = useState('');
 
   const semanas = useMemo(
     () => WEEK_OFFSETS.map((offset) => ({ offset, dias: getWeekDays(offset) })),
@@ -76,21 +80,27 @@ export function MesScreen() {
     let startTop = 0;
 
     function onTouchStart(e: TouchEvent) {
+      debugRef.current.start++;
       const el = weeksScrollRef.current;
       const t = e.touches[0];
       if (!el || !t) return;
       const rect = el.getBoundingClientRect();
+      debugRef.current.rect = `${rect.left.toFixed(0)},${rect.top.toFixed(0)} → ${rect.right.toFixed(0)},${rect.bottom.toFixed(0)}`;
+      debugRef.current.xy = `${t.clientX.toFixed(0)},${t.clientY.toFixed(0)}`;
       if (t.clientX < rect.left || t.clientX > rect.right || t.clientY < rect.top || t.clientY > rect.bottom) {
         return;
       }
       dragging = true;
+      debugRef.current.drag++;
       startX = t.clientX;
       startTop = el.scrollTop;
     }
     function onTouchMove(e: TouchEvent) {
+      debugRef.current.move++;
       const el = weeksScrollRef.current;
       if (!dragging || !el) return;
       el.scrollTop = startTop + (startX - e.touches[0].clientX);
+      debugRef.current.scrollTop = el.scrollTop;
       e.preventDefault();
     }
     function onTouchEnd() {
@@ -113,6 +123,18 @@ export function MesScreen() {
     // `onTouchStart` no tiene nada contra lo que comprobar el rect.
   }, [loading]);
 
+  // DEBUG TEMPORAL — refresca el texto visible cada 200ms desde debugRef (no en cada evento
+  // táctil, para no meter re-renders de React en medio del arrastre).
+  useEffect(() => {
+    const id = setInterval(() => {
+      const d = debugRef.current;
+      setDebugText(
+        `start:${d.start} move:${d.move} drag:${d.drag} scrollTop:${d.scrollTop} xy:${d.xy} rect:${d.rect}`,
+      );
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
+
   const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
   const comidaByKey = useMemo(() => new Map(comidas.map((c) => [c.id, c])), [comidas]);
 
@@ -128,6 +150,8 @@ export function MesScreen() {
         </button>
         <h1 className={styles.title}>Mes</h1>
       </div>
+      {/* DEBUG TEMPORAL — quitar en cuanto se diagnostique el swipe. */}
+      <p className={styles.debug}>{debugText}</p>
 
       {!loading && (
         <div className={styles.grid}>
