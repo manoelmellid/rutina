@@ -1,6 +1,6 @@
 import { formatCantidad } from './units';
 import { formatFullDayLabel, parseISODate } from './week';
-import type { DespensaEntry, Ingrediente } from './db';
+import type { Comida, DespensaEntry, Ingrediente, Plato } from './db';
 
 /** Los lotes de un ingrediente en la despensa. Modelo de 2 lotes: sin abrir + abierto. */
 export interface LotesDeIngrediente {
@@ -56,4 +56,20 @@ export function resumenLotes(l: LotesDeIngrediente, ing: Ingrediente | undefined
 export function etiquetaLote(e: DespensaEntry): string {
   if (!e.abiertoEl) return 'Sin abrir';
   return `Abierto el ${formatFullDayLabel(parseISODate(e.abiertoEl)).toLowerCase()}`;
+}
+
+/**
+ * ingredienteIds que usan los platos ya asignados (con `platoId`) en esas comidas — para
+ * resaltar en la Despensa "esto lo usa un plato planificado esta semana". Tupper/Fuera y
+ * huecos vacíos no aportan nada; un plato borrado (`platoId` colgante) tampoco.
+ */
+export function ingredientesEnPlan(comidas: Comida[], platos: Map<string, Plato>): Set<string> {
+  const ids = new Set<string>();
+  for (const c of comidas) {
+    if (!c.platoId) continue;
+    const plato = platos.get(c.platoId);
+    if (!plato) continue;
+    for (const pi of plato.ingredientes) ids.add(pi.ingredienteId);
+  }
+  return ids;
 }

@@ -5,15 +5,20 @@ import styles from './DespensaScreen.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
 import { IconPlus } from '../components/icons';
 import { formatCantidad, parseCantidad, UNIDAD_LABEL } from '../lib/units';
-import { agruparDespensa, etiquetaLote, resumenLotes } from '../lib/despensa';
+import { agruparDespensa, etiquetaLote, ingredientesEnPlan, resumenLotes } from '../lib/despensa';
+import { getWeekDays, toISODate } from '../lib/week';
 import {
   addToDespensa,
   deleteDespensaEntry,
   getAllIngredientes,
+  getAllPlatos,
+  getComidasEnRango,
   getDespensa,
   saveDespensaEntry,
+  type Comida,
   type DespensaEntry,
   type Ingrediente,
+  type Plato,
 } from '../lib/db';
 
 type View = { mode: 'list' } | { mode: 'add' } | { mode: 'detail'; ingredienteId: string };
@@ -21,15 +26,25 @@ type View = { mode: 'list' } | { mode: 'add' } | { mode: 'detail'; ingredienteId
 export function DespensaScreen() {
   const [entries, setEntries] = useState<DespensaEntry[]>([]);
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
+  const [platos, setPlatos] = useState<Plato[]>([]);
+  const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>({ mode: 'list' });
   const { setTopLeftBack, setTitle, setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
 
   async function refetch() {
-    const [e, i] = await Promise.all([getDespensa(), getAllIngredientes()]);
+    const days = getWeekDays(0);
+    const [e, i, p, c] = await Promise.all([
+      getDespensa(),
+      getAllIngredientes(),
+      getAllPlatos(),
+      getComidasEnRango(toISODate(days[0]), toISODate(days[6])),
+    ]);
     setEntries(e);
     setIngredientes(i);
+    setPlatos(p);
+    setComidas(c);
     setLoading(false);
   }
 
@@ -40,6 +55,11 @@ export function DespensaScreen() {
   const ingMap = useMemo(
     () => new Map(ingredientes.map((i) => [i.id, i])),
     [ingredientes],
+  );
+
+  const enPlan = useMemo(
+    () => ingredientesEnPlan(comidas, new Map(platos.map((p) => [p.id, p]))),
+    [comidas, platos],
   );
 
   useEffect(() => {
@@ -111,7 +131,8 @@ export function DespensaScreen() {
     <div>
       <p className={sharedStyles.dateLabel}>
         Lo que hay en casa. Se llenará al pulsar “Compra finalizada” (Fase 4); aquí puedes
-        añadir o corregir a mano.
+        añadir o corregir a mano. Lo marcado <strong>en el plan</strong> lo usa un plato ya
+        asignado esta semana.
       </p>
       {grupos.length === 0 ? (
         <p className={sharedStyles.emptyHint}>La despensa está vacía. Usa “+” para añadir algo.</p>
@@ -127,7 +148,12 @@ export function DespensaScreen() {
                 onClick={() => setView({ mode: 'detail', ingredienteId: grupo.ingredienteId })}
               >
                 <span className={styles.rowMain}>
-                  <span>{ing?.nombre ?? '(eliminado)'}</span>
+                  <span>
+                    {ing?.nombre ?? '(eliminado)'}
+                    {enPlan.has(grupo.ingredienteId) && (
+                      <span className={styles.planBadge}>en el plan</span>
+                    )}
+                  </span>
                   <span className={sharedStyles.rowSecondary}>{resumenLotes(grupo, ing)}</span>
                 </span>
                 <span className={sharedStyles.rowSecondary}>›</span>

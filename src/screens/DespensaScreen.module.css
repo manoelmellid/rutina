@@ -5,6 +5,18 @@
   min-width: 0;
 }
 
+.planBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .fieldLabel {
   font-size: 13px;
   font-weight: 600;
