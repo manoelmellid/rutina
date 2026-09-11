@@ -82,32 +82,34 @@ export function MesScreen() {
               </span>
             ))}
           </div>
-          {semanas.map((dias, weekOffset) => (
-            <div key={weekOffset} className={styles.weekRow}>
-              {dias.map((date) => {
-                const fecha = toISODate(date);
-                const today = isSameDate(date, new Date());
-                return (
-                  <button
-                    key={fecha}
-                    type="button"
-                    className={`${styles.cell} ${today ? styles.cellToday : ''}`}
-                    onClick={() => navigate('/comidas', { state: { weekOffset } })}
-                  >
-                    <span className={styles.dayNum}>{date.getDate()}</span>
-                    {TIPOS.map((tipo) => {
-                      const r = resumenSlot(getComida(fecha, tipo), platoById);
-                      return (
-                        <span key={tipo} className={`${styles.slot} ${r.clase ?? styles.slotVacio}`}>
-                          {r.texto}
-                        </span>
-                      );
-                    })}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          <div className={styles.weeksScroll}>
+            {semanas.map((dias, weekOffset) => (
+              <div key={weekOffset} className={styles.weekRow}>
+                {dias.map((date) => {
+                  const fecha = toISODate(date);
+                  const today = isSameDate(date, new Date());
+                  return (
+                    <button
+                      key={fecha}
+                      type="button"
+                      className={`${styles.cell} ${today ? styles.cellToday : ''}`}
+                      onClick={() => navigate('/comidas', { state: { weekOffset } })}
+                    >
+                      <span className={styles.dayNum}>{date.getDate()}</span>
+                      {TIPOS.map((tipo) => {
+                        const r = resumenSlot(getComida(fecha, tipo), platoById);
+                        return (
+                          <span key={tipo} className={`${styles.slot} ${r.clase ?? styles.slotVacio}`}>
+                            {r.texto}
+                          </span>
+                        );
+                      })}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
