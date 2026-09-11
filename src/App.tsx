@@ -9,6 +9,8 @@ import { IngredientesScreen } from './screens/IngredientesScreen';
 import { DespensaScreen } from './screens/DespensaScreen';
 import { FinanzasScreen } from './screens/FinanzasScreen';
 import { GymScreen } from './screens/GymScreen';
+import { MesScreen } from './screens/MesScreen';
+import { RestriccionesScreen } from './screens/RestriccionesScreen';
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
           <Route path="/" element={<HoyScreen />} />
           <Route path="/comidas" element={<ComidasScreen />} />
           <Route path="/comidas/platos" element={<PlatosScreen />} />
+          <Route path="/comidas/mes" element={<MesScreen />} />
+          <Route path="/comidas/restricciones" element={<RestriccionesScreen />} />
           <Route path="/ajustes" element={<AjustesScreen />} />
           <Route path="/compra" element={<CompraScreen />} />
           <Route path="/compra/ingredientes" element={<IngredientesScreen />} />

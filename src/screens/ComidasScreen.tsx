@@ -6,7 +6,7 @@ import { DayCard } from '../features/comidas/DayCard';
 import { AsignarComidaPanel } from '../features/comidas/AsignarComidaPanel';
 import { PropuestaGeneradorPanel } from '../features/comidas/PropuestaGeneradorPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { IconCarta, IconSparkles } from '../components/icons';
+import { IconCarta, IconMes, IconRestricciones, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import {
@@ -102,6 +102,12 @@ export function ComidasScreen() {
           setGenerateStep(slots.length === 0 ? 'vacio' : 'confirm');
         },
       },
+      {
+        icon: <IconRestricciones />,
+        label: 'Restricciones',
+        onClick: () => navigate('/comidas/restricciones'),
+      },
+      { icon: <IconMes />, label: 'Mes', onClick: () => navigate('/comidas/mes') },
       { icon: <IconCarta />, label: 'Platos', onClick: () => navigate('/comidas/platos') },
     ]);
     return () => setTopRightAction(null);
