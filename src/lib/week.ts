@@ -53,10 +53,13 @@ export function formatFullDayLabel(d: Date): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+/** "8 sept – 14 sept" para dos fechas cualesquiera (no necesariamente una semana). */
+export function formatRangeLabel(a: Date, b: Date): string {
+  return `${RANGE_FORMATTER.format(a)} – ${RANGE_FORMATTER.format(b)}`;
+}
+
 export function formatWeekRangeLabel(days: Date[]): string {
-  const first = RANGE_FORMATTER.format(days[0]);
-  const last = RANGE_FORMATTER.format(days[6]);
-  return `${first} – ${last}`;
+  return formatRangeLabel(days[0], days[6]);
 }
 
 export function isSameDate(a: Date, b: Date): boolean {
