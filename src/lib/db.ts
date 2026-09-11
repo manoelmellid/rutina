@@ -3,6 +3,7 @@ import {
   CATEGORIAS_SEED,
   CATEGORIA_FALLBACK_ID,
   PREFERENCIAS_DEFAULT,
+  normalizeComida,
   normalizeDespensaEntry,
   normalizeIngrediente,
   normalizeItemCompra,
@@ -58,6 +59,12 @@ export interface Comida {
   especial: Especial | null;
   /** Free-text tags for especiales (e.g. ["Empanada", "Croquetas"]). */
   tags: string[];
+  /**
+   * Foto de lo que ya se restó de la despensa por esta comida, o `null` si aún no toca (fecha
+   * futura, o sin plato). La usa `sincronizarConsumoComida` (Fase 5) para saber qué revertir si
+   * el plato cambia después de procesarse. Nunca se edita a mano.
+   */
+  consumoAplicado: { platoId: string; ingredientes: PlatoIngrediente[] } | null;
 }
 
 export interface ItemCompra {
@@ -351,6 +358,52 @@ export async function addToDespensa(
   await tx.done;
 }
 
+/**
+ * Resta `cantidad` de la despensa de un ingrediente para reflejar que se ha cocinado. Tira
+ * primero del lote "abierto"; si no alcanza, tira del "sin abrir" — y ese paquete, si se toca,
+ * pasa entero a "abierto" (no se abre media unidad, igual que en Compra/F4). Nunca deja cantidades
+ * negativas: si no hay suficiente, se resta lo que haya y punto (mismo estilo tolerante que la
+ * reconciliación de Compra). Las entradas que quedan a 0 se borran.
+ */
+export async function consumirDeDespensa(ingredienteId: string, cantidad: number): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction('despensa', 'readwrite');
+  const store = tx.objectStore('despensa');
+  const entries = await store.index('by-ingrediente').getAll(ingredienteId);
+  const abierto = entries.find((e) => e.abiertoEl !== null);
+  const sinAbrir = entries.find((e) => e.abiertoEl === null);
+
+  let restante = cantidad;
+  let cantidadAbierto = abierto?.cantidad ?? 0;
+  if (abierto) {
+    const usado = Math.min(cantidadAbierto, restante);
+    cantidadAbierto -= usado;
+    restante -= usado;
+  }
+
+  if (sinAbrir) {
+    // Se toca el paquete sin abrir: pase lo que pase, se abre entero. Lo que sobre tras cubrir
+    // el resto del déficit se une al lote abierto (el mismo paquete, ya abierto).
+    const sobrante = Math.max(sinAbrir.cantidad - restante, 0);
+    cantidadAbierto += sobrante;
+    await store.delete(sinAbrir.id);
+  }
+
+  if (abierto) {
+    if (cantidadAbierto > 0) await store.put({ ...abierto, cantidad: cantidadAbierto });
+    else await store.delete(abierto.id);
+  } else if (cantidadAbierto > 0) {
+    await store.put({
+      id: newId(),
+      ingredienteId,
+      cantidad: cantidadAbierto,
+      abiertoEl: toISODateString(new Date()),
+    });
+  }
+
+  await tx.done;
+}
+
 function toISODateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
     d.getDate(),
@@ -364,17 +417,19 @@ function toISODateString(d: Date): string {
 export async function getComidasEnRango(fechaInicio: string, fechaFin: string): Promise<Comida[]> {
   const db = await getDB();
   const range = IDBKeyRange.bound(fechaInicio, fechaFin);
-  return db.getAllFromIndex('comidas', 'by-fecha', range);
+  const rows = await db.getAllFromIndex('comidas', 'by-fecha', range);
+  return rows.map(normalizeComida);
 }
 
 export async function getAllComidas(): Promise<Comida[]> {
   const db = await getDB();
-  return db.getAll('comidas');
+  const rows = await db.getAll('comidas');
+  return rows.map(normalizeComida);
 }
 
 export async function setComida(comida: Comida): Promise<void> {
   const db = await getDB();
-  await db.put('comidas', comida);
+  await db.put('comidas', normalizeComida(comida));
 }
 
 export async function clearComida(fecha: string, tipo: TipoComida): Promise<void> {

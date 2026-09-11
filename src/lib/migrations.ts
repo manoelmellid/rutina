@@ -1,11 +1,15 @@
 import type {
   Categoria,
+  Comida,
   DespensaEntry,
+  Especial,
   Ingrediente,
   ItemCompra,
   Plato,
+  PlatoIngrediente,
   PlatoTipo,
   Preferencias,
+  TipoComida,
   Unidad,
 } from './db';
 
@@ -36,6 +40,8 @@ export const PREFERENCIAS_DEFAULT: Preferencias = {
 
 const UNIDADES: Unidad[] = ['g', 'ml', 'ud'];
 const TIPOS: PlatoTipo[] = ['comida', 'cena', 'ambas'];
+const TIPOS_COMIDA: TipoComida[] = ['comida', 'cena'];
+const ESPECIALES: Especial[] = ['tupper', 'fuera'];
 
 /** Lenient number parse: accepts number or string, Spanish comma, returns a finite >= 0 number or 0. */
 function toNumberOrZero(v: unknown): number {
@@ -114,5 +120,41 @@ export function normalizeItemCompra(raw: Partial<ItemCompra> & { id: string }): 
     origenComidaIds: Array.isArray(raw.origenComidaIds)
       ? raw.origenComidaIds.filter((c): c is string => typeof c === 'string')
       : [],
+  };
+}
+
+function normalizePlatoIngredientes(raw: unknown): PlatoIngrediente[] {
+  return Array.isArray(raw)
+    ? raw
+        .filter((pi): pi is { ingredienteId: string; cantidad?: unknown } =>
+          Boolean(pi) && typeof (pi as { ingredienteId?: unknown }).ingredienteId === 'string',
+        )
+        .map((pi) => ({ ingredienteId: pi.ingredienteId, cantidad: toNumberOrZero(pi.cantidad) }))
+    : [];
+}
+
+/**
+ * Backfills a comida row to the current shape. Compartido por `getComidasEnRango`/`getAllComidas`/
+ * `setComida` (Fase 5) e `importBackup()` — es la primera vez que `comidas` pasa por un
+ * `normalize*` (antes se leía/escribía a pelo). Filas viejas sin `consumoAplicado` se backfillean
+ * a `null` (aún no toca / sin plato).
+ */
+export function normalizeComida(
+  raw: Partial<Comida> & { id: string; fecha: string; tipo: TipoComida },
+): Comida {
+  return {
+    id: raw.id,
+    fecha: raw.fecha,
+    tipo: TIPOS_COMIDA.includes(raw.tipo) ? raw.tipo : 'comida',
+    platoId: typeof raw.platoId === 'string' ? raw.platoId : null,
+    especial: raw.especial && ESPECIALES.includes(raw.especial) ? raw.especial : null,
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
+    consumoAplicado:
+      raw.consumoAplicado && typeof raw.consumoAplicado.platoId === 'string'
+        ? {
+            platoId: raw.consumoAplicado.platoId,
+            ingredientes: normalizePlatoIngredientes(raw.consumoAplicado.ingredientes),
+          }
+        : null,
   };
 }
