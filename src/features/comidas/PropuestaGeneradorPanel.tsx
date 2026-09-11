@@ -45,8 +45,13 @@ export function PropuestaGeneradorPanel({
             <span>
               {formatFullDayLabel(parseISODate(p.fecha))} · {p.tipo === 'comida' ? 'Comida' : 'Cena'}
             </span>
-            <span className={p.platoId ? undefined : styles.sinPlato}>
-              {p.platoId ? getPlatoNombre(p.platoId) : 'Sin plato'}
+            <span className={styles.rowMain}>
+              <span className={p.platoId ? undefined : styles.sinPlato}>
+                {p.platoId ? getPlatoNombre(p.platoId) : 'Sin plato'}
+              </span>
+              {p.perecederoUrgente && (
+                <span className={styles.motivoCaducidad}>Usa algo que caduca pronto</span>
+              )}
             </span>
           </div>
         ))}
