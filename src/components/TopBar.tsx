@@ -5,6 +5,8 @@ export interface TopBarAction {
   icon: ReactNode;
   label: string;
   onClick: () => void;
+  variant?: 'accent' | 'danger';
+  showLabel?: boolean;
 }
 
 export interface TopBarBack {
@@ -35,11 +37,18 @@ export function TopBar({ title, action, back }: TopBarProps) {
               <button
                 key={a.label}
                 type="button"
-                className={styles.gearButton}
+                className={[
+                  styles.gearButton,
+                  a.variant && styles[a.variant],
+                  a.showLabel && styles.withLabel,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={a.onClick}
                 aria-label={a.label}
               >
                 {a.icon}
+                {a.showLabel && <span className={styles.gearLabel}>{a.label}</span>}
               </button>
             ))}
           </div>

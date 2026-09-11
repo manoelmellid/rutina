@@ -56,3 +56,30 @@
   width: 22px;
   height: 22px;
 }
+
+.gearButton.accent {
+  color: var(--color-accent);
+}
+
+.gearButton.danger {
+  color: var(--color-danger);
+}
+
+.gearButton.withLabel {
+  width: auto;
+  height: auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 4px;
+}
+
+.gearButton.withLabel svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gearLabel {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
