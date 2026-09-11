@@ -153,56 +153,39 @@ export function MesScreen() {
   // (no en `.weeksScroll`) porque un elemento DESCENDIENTE de un ancestro rotado puede tener el
   // hit-testing táctil de WebKit poco fiable; `window` siempre recibe el toque, y aquí se
   // comprueba a mano con `getBoundingClientRect()` si cayó dentro de `.weeksScroll` antes de
-  // arrastrar. Durante el arrastre el scroll es libre (sigue al dedo 1:1); al soltar, encaja en
-  // el múltiplo de semana completa más cercano en la dirección del arrastre neto (o vuelve a la
-  // posición de partida si el arrastre fue muy corto) — nunca deja una semana a medias. Si el
-  // destino cae fuera del rango cargado, el rango se AMPLÍA en esa dirección en vez de bloquear
-  // (nunca hay un "final" real, solo un borde que se va corriendo bajo demanda).
+  // arrastrar.
+  //
+  // Scroll con INERCIA, no "una semana por gesto": durante el arrastre sigue al dedo 1:1 (libre
+  // de verdad, puede recorrer varias semanas en un solo gesto). Al soltar, sigue moviéndose con
+  // la velocidad que llevaba el dedo en ese instante, decelerando por fricción — igual que
+  // cualquier lista nativa. Solo cuando esa velocidad baja de un umbral (o se sale del rango
+  // cargado) se "engancha" a la semana completa más cercana. Si el objetivo cae fuera del rango
+  // cargado, se AMPLÍA en esa dirección en vez de bloquear (nunca hay un "final" real).
   useEffect(() => {
     let dragging = false;
     let startX = 0;
     let startTop = 0;
-    // El navegador clampa `el.scrollTop` en cuanto se asigna un valor fuera de
-    // [0, scrollHeight-clientHeight] — si el usuario ya está en el borde y sigue arrastrando,
-    // `el.scrollTop` deja de moverse y "miente" (nunca refleja la intención real). `deseado` lleva
-    // la cuenta del valor real que pediría el arrastre, sin clampar, para poder detectar en
-    // onTouchEnd que el usuario quería ir más allá del rango cargado.
-    let deseado = 0;
+    let deseado = 0; // posición sin clampar durante el arrastre — ver onTouchMove
+    let ultimaX = 0;
+    let ultimoT = 0;
+    let velocidad = 0; // px de scrollTop por ms
+    let animacionId = 0;
 
-    function onTouchStart(e: TouchEvent) {
-      const el = weeksScrollRef.current;
-      const t = e.touches[0];
-      if (!el || !t) return;
-      const rect = el.getBoundingClientRect();
-      if (t.clientX < rect.left || t.clientX > rect.right || t.clientY < rect.top || t.clientY > rect.bottom) {
-        return;
-      }
-      dragging = true;
-      startX = t.clientX;
-      startTop = el.scrollTop;
-      deseado = startTop;
+    function detenerMomentum() {
+      if (animacionId) cancelAnimationFrame(animacionId);
+      animacionId = 0;
     }
-    function onTouchMove(e: TouchEvent) {
-      const el = weeksScrollRef.current;
-      if (!dragging || !el) return;
-      deseado = startTop - (startX - e.touches[0].clientX);
-      el.scrollTop = deseado;
-      e.preventDefault();
-    }
-    function onTouchEnd() {
-      const el = weeksScrollRef.current;
-      const arrastraba = dragging;
-      dragging = false;
-      if (!arrastraba || !el) return;
 
+    /**
+     * Ajusta scrollTop al múltiplo de semana completa más cercano; amplía el rango si hace falta.
+     * `deseado` es la posición SIN clampar (ver por qué en el comentario de más abajo, en
+     * onTouchMove) — nunca se lee `el.scrollTop` para decidir el índice objetivo, porque el
+     * navegador ya lo habría clampado en el borde, ocultando que el usuario quería ir más allá.
+     */
+    function engancharSemana(el: HTMLDivElement, deseado: number) {
       const paso = medirPaso(el);
       if (paso <= 0) return;
-      const indiceInicial = Math.round(startTop / paso);
-      const indiceActual = deseado / paso;
-      const umbral = 0.2; // fracción de una semana que hay que arrastrar para cambiar de página
-      let indiceObjetivo = indiceInicial;
-      if (indiceActual > indiceInicial + umbral) indiceObjetivo = indiceInicial + 1;
-      else if (indiceActual < indiceInicial - umbral) indiceObjetivo = indiceInicial - 1;
+      const indiceObjetivo = Math.round(deseado / paso);
 
       if (indiceObjetivo < 0) {
         // Ampliar por delante inserta AMPLIACION filas nuevas antes del índice 0 actual — el
@@ -218,12 +201,83 @@ export function MesScreen() {
         setMaxOffset((m) => m + AMPLIACION);
         return;
       }
-
-      // `behavior: 'smooth'` no funciona en este contexto (comprobado: `el.scrollTo({top, behavior:
-      // 'smooth'})` no movía nada en absoluto durante más de un segundo, mientras que la asignación
-      // instantánea sí) — puede que sea cosa del navegador de desarrollo o de este árbol rotado en
-      // concreto; en cualquier caso, instantáneo es lo único que se ha podido verificar que funcione.
+      // `behavior: 'smooth'` no funciona en este contexto (comprobado con una prueba aislada:
+      // `el.scrollTo({top, behavior:'smooth'})` no movía nada en absoluto durante más de un
+      // segundo, mientras que la asignación instantánea sí) — instantáneo es lo único verificado.
       el.scrollTop = indiceObjetivo * paso;
+    }
+
+    const FRICCION = 0.95; // factor de deceleración por frame (~16ms)
+    const UMBRAL_PARAR = 0.02; // px/ms por debajo del cual se considera "parado" y se engancha
+
+    function lanzarMomentum(el: HTMLDivElement, velocidadInicial: number, posInicial: number) {
+      if (Math.abs(velocidadInicial) <= UMBRAL_PARAR) {
+        engancharSemana(el, posInicial);
+        return;
+      }
+      let v = velocidadInicial;
+      // `pos` es la posición física SIN clampar — sigue creciendo/decreciendo más allá de los
+      // bordes del DOM aunque `el.scrollTop` (visual) se quede pegado en ellos, para que al parar
+      // `engancharSemana` sepa que el usuario quería ir más allá y amplíe el rango en vez de
+      // quedarse exactamente en la última semana cargada.
+      let pos = posInicial;
+      function frame() {
+        pos += v * 16;
+        v *= FRICCION;
+        const max = el.scrollHeight - el.clientHeight;
+        el.scrollTop = Math.max(0, Math.min(pos, max));
+        const alcanzoBorde = pos <= 0 || pos >= max;
+        if (Math.abs(v) > UMBRAL_PARAR && !alcanzoBorde) {
+          animacionId = requestAnimationFrame(frame);
+        } else {
+          animacionId = 0;
+          engancharSemana(el, pos);
+        }
+      }
+      animacionId = requestAnimationFrame(frame);
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      const el = weeksScrollRef.current;
+      const t = e.touches[0];
+      if (!el || !t) return;
+      const rect = el.getBoundingClientRect();
+      if (t.clientX < rect.left || t.clientX > rect.right || t.clientY < rect.top || t.clientY > rect.bottom) {
+        return;
+      }
+      detenerMomentum(); // "atrapar" un scroll que todavía estuviera decelerando
+      dragging = true;
+      startX = t.clientX;
+      startTop = el.scrollTop;
+      deseado = startTop;
+      ultimaX = t.clientX;
+      ultimoT = e.timeStamp;
+      velocidad = 0;
+    }
+    function onTouchMove(e: TouchEvent) {
+      const el = weeksScrollRef.current;
+      if (!dragging || !el) return;
+      const t = e.touches[0];
+      // El navegador clampa `el.scrollTop` en cuanto se le asigna un valor fuera de
+      // [0, scrollHeight-clientHeight] — si el usuario ya está en el borde y sigue arrastrando,
+      // `el.scrollTop` deja de moverse y "miente" (bug real, ya visto una vez). `deseado` lleva
+      // la cuenta del valor real que pide el arrastre, sin clampar.
+      deseado = startTop - (startX - t.clientX);
+      el.scrollTop = deseado;
+      const dt = e.timeStamp - ultimoT;
+      // Velocidad instantánea (últimos dos puntos) — es lo que se siente al soltar, no la media
+      // de todo el gesto.
+      if (dt > 0) velocidad = (t.clientX - ultimaX) / dt;
+      ultimaX = t.clientX;
+      ultimoT = e.timeStamp;
+      e.preventDefault();
+    }
+    function onTouchEnd() {
+      const el = weeksScrollRef.current;
+      const arrastraba = dragging;
+      dragging = false;
+      if (!arrastraba || !el) return;
+      lanzarMomentum(el, velocidad, deseado);
     }
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -235,6 +289,7 @@ export function MesScreen() {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
+      detenerMomentum();
     };
     // `.weeksScroll` solo existe en el DOM cuando `!loading` — sin `loading` en las deps, este
     // efecto se ejecuta una vez con `weeksScrollRef.current` todavía `null` y nunca vuelve a
