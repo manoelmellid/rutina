@@ -4,7 +4,7 @@ import styles from './MesScreen.module.css';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComida } from '../lib/db';
 
-const SEMANAS = 2; // "probar primero con dos" — la ventana real vendrá después
+const SEMANAS = 3;
 const DIAS_LABEL = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const TIPOS: TipoComida[] = ['comida', 'cena'];
 
