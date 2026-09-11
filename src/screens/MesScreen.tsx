@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './MesScreen.module.css';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComida } from '../lib/db';
 
-const SEMANAS = 3;
+// Semana anterior, actual, siguiente — centra "hoy" en vez de dejarlo siempre al principio.
+const WEEK_OFFSETS = [-1, 0, 1];
 const DIAS_LABEL = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const TIPOS: TipoComida[] = ['comida', 'cena'];
 
 interface Resumen {
   texto: string;
-  clase?: string;
+  clase: string;
 }
 
 function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>): Resumen {
-  if (!comida) return { texto: '—' };
+  if (!comida) return { texto: '—', clase: styles.slotVacio };
   if (comida.especial) {
     const nombre = comida.especial === 'tupper' ? 'Tupper' : 'Fuera';
     return {
@@ -24,9 +25,9 @@ function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>):
   }
   if (comida.platoId) {
     const nombre = platoById.get(comida.platoId)?.nombre ?? '(eliminado)';
-    return { texto: nombre, clase: nombre === '(eliminado)' ? styles.slotEliminado : undefined };
+    return { texto: nombre, clase: nombre === '(eliminado)' ? styles.slotEliminado : styles.slotLleno };
   }
-  return { texto: '—' };
+  return { texto: '—', clase: styles.slotVacio };
 }
 
 /**
@@ -41,21 +42,65 @@ export function MesScreen() {
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
   const [loading, setLoading] = useState(true);
+  const weeksScrollRef = useRef<HTMLDivElement | null>(null);
 
   const semanas = useMemo(
-    () => Array.from({ length: SEMANAS }, (_, i) => getWeekDays(i)),
+    () => WEEK_OFFSETS.map((offset) => ({ offset, dias: getWeekDays(offset) })),
     [],
   );
 
   useEffect(() => {
-    const desde = toISODate(semanas[0][0]);
-    const hasta = toISODate(semanas[semanas.length - 1][6]);
+    const desde = toISODate(semanas[0].dias[0]);
+    const hasta = toISODate(semanas[semanas.length - 1].dias[6]);
     Promise.all([getAllPlatos(), getComidasEnRango(desde, hasta)]).then(([p, c]) => {
       setPlatos(p);
       setComidas(c);
       setLoading(false);
     });
   }, [semanas]);
+
+  // El scroll nativo por gesto táctil no atraviesa de forma fiable un ancestro con
+  // `transform: rotate(...)` en iOS (WebKit) — se lleva a mano: el eje vertical propio de
+  // `.weeksScroll` (donde se apilan las semanas) corresponde, tras la rotación de 90°, a un
+  // arrastre HORIZONTAL físico (ver derivación en MesScreen.module.css), así que el delta de
+  // `clientX` es lo que mueve `scrollTop`. `touch-action: none` en el CSS le dice al navegador
+  // que no intente su propio gesto aquí, para que no compita con este.
+  useEffect(() => {
+    const el = weeksScrollRef.current;
+    if (!el) return;
+
+    let dragging = false;
+    let startX = 0;
+    let startTop = 0;
+
+    function onTouchStart(e: TouchEvent) {
+      dragging = true;
+      startX = e.touches[0].clientX;
+      startTop = el!.scrollTop;
+    }
+    function onTouchMove(e: TouchEvent) {
+      if (!dragging) return;
+      el!.scrollTop = startTop + (startX - e.touches[0].clientX);
+      e.preventDefault();
+    }
+    function onTouchEnd() {
+      dragging = false;
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+    // `.weeksScroll` solo existe en el DOM cuando `!loading` — sin `loading` en las deps, este
+    // efecto se ejecuta una vez con `weeksScrollRef.current` todavía `null` (el montaje real pasa
+    // después) y nunca vuelve a intentarlo: los listeners no se llegan a adjuntar nunca.
+  }, [loading]);
 
   const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
   const comidaByKey = useMemo(() => new Map(comidas.map((c) => [c.id, c])), [comidas]);
@@ -82,9 +127,9 @@ export function MesScreen() {
               </span>
             ))}
           </div>
-          <div className={styles.weeksScroll}>
-            {semanas.map((dias, weekOffset) => (
-              <div key={weekOffset} className={styles.weekRow}>
+          <div className={styles.weeksScroll} ref={weeksScrollRef}>
+            {semanas.map(({ offset, dias }) => (
+              <div key={offset} className={styles.weekRow}>
                 {dias.map((date) => {
                   const fecha = toISODate(date);
                   const today = isSameDate(date, new Date());
@@ -93,13 +138,13 @@ export function MesScreen() {
                       key={fecha}
                       type="button"
                       className={`${styles.cell} ${today ? styles.cellToday : ''}`}
-                      onClick={() => navigate('/comidas', { state: { weekOffset } })}
+                      onClick={() => navigate('/comidas', { state: { weekOffset: offset, fecha } })}
                     >
                       <span className={styles.dayNum}>{date.getDate()}</span>
                       {TIPOS.map((tipo) => {
                         const r = resumenSlot(getComida(fecha, tipo), platoById);
                         return (
-                          <span key={tipo} className={`${styles.slot} ${r.clase ?? styles.slotVacio}`}>
+                          <span key={tipo} className={`${styles.slot} ${r.clase}`}>
                             {r.texto}
                           </span>
                         );

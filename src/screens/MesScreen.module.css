@@ -68,11 +68,18 @@
 /* Las semanas viven en su propio scroll — el header de días de la semana se queda fijo arriba.
    Con el contenido rotado 90°, desplazarse por este eje (vertical en las coordenadas propias de
    la caja) se siente como un swipe horizontal en la pantalla real: más semanas de las que caben
-   se deslizan en vez de recortarse. */
+   se deslizan en vez de recortarse.
+   `overflow-y: auto` sigue haciendo falta para el recorte/renderizado del scroll (clipa el
+   contenido y traduce visualmente según `scrollTop`, sea cual sea el mecanismo que lo cambie),
+   pero el GESTO táctil nativo de iOS no atraviesa de forma fiable un ancestro con `transform:
+   rotate(...)` — así que `scrollTop` se mueve a mano en MesScreen.tsx (touchstart/touchmove sobre
+   este elemento) en vez de confiar en el reconocimiento de gestos nativo. `touch-action: none`
+   evita que el navegador intente además su propio gesto y compita con el nuestro. */
 .weeksScroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  touch-action: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -114,6 +121,10 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.slotLleno {
+  color: var(--color-text);
 }
 
 .slotVacio {
