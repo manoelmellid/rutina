@@ -4,19 +4,25 @@ import styles from './ComidasScreen.module.css';
 import { WeekNav } from '../features/comidas/WeekNav';
 import { DayCard } from '../features/comidas/DayCard';
 import { AsignarComidaPanel } from '../features/comidas/AsignarComidaPanel';
+import { PropuestaGeneradorPanel } from '../features/comidas/PropuestaGeneradorPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { IconCarta, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
-import { formatWeekRangeLabel, getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { describirAlcance, planificar, slotsObjetivo, type ResultadoGeneracion } from '../lib/generador';
 import {
   comidaId,
   getAllComidas,
   getAllPlatos,
+  getDespensa,
+  getPreferencias,
   setComida,
   clearComida,
   type Comida,
+  type DespensaEntry,
   type Especial,
   type Plato,
+  type Preferencias,
   type TipoComida,
 } from '../lib/db';
 
@@ -29,9 +35,12 @@ export function ComidasScreen() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [comidas, setComidas] = useState<Comida[]>([]);
+  const [prefs, setPrefs] = useState<Preferencias | null>(null);
+  const [despensa, setDespensa] = useState<DespensaEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
-  const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'confirm' | 'pending'>('idle');
+  const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'vacio' | 'confirm'>('idle');
+  const [propuesta, setPropuesta] = useState<ResultadoGeneracion | null>(null);
   const [readyToReveal, setReadyToReveal] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
@@ -41,15 +50,21 @@ export function ComidasScreen() {
   const scrollPosRef = useRef(0);
 
   useEffect(() => {
-    Promise.all([getAllPlatos(), getAllComidas()]).then(([p, c]) => {
-      setPlatos(p);
-      setComidas(c);
-      setLoading(false);
-    });
+    Promise.all([getAllPlatos(), getAllComidas(), getPreferencias(), getDespensa()]).then(
+      ([p, c, pr, d]) => {
+        setPlatos(p);
+        setComidas(c);
+        setPrefs(pr);
+        setDespensa(d);
+        setLoading(false);
+      },
+    );
   }, []);
 
+  const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+
   useEffect(() => {
-    if (selection) {
+    if (selection || propuesta) {
       setTopRightAction(null);
       return;
     }
@@ -57,14 +72,20 @@ export function ComidasScreen() {
       {
         icon: <IconSparkles />,
         label: 'Generar comidas',
-        onClick: () => setGenerateStep(weekOffset < 0 ? 'past' : 'confirm'),
+        onClick: () => {
+          if (weekOffset < 0) {
+            setGenerateStep('past');
+            return;
+          }
+          if (!prefs) return;
+          const slots = slotsObjetivo(prefs, days, new Date());
+          setGenerateStep(slots.length === 0 ? 'vacio' : 'confirm');
+        },
       },
       { icon: <IconCarta />, label: 'Platos', onClick: () => navigate('/comidas/platos') },
     ]);
     return () => setTopRightAction(null);
-  }, [setTopRightAction, navigate, selection, weekOffset]);
-
-  const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+  }, [setTopRightAction, navigate, selection, propuesta, weekOffset, prefs, days]);
 
   // Coloca la vista en el día de hoy (solo en la semana actual). Ported de comidas-app:
   // doble rAF para medir tras el layout real, retry de respaldo, y la lista oculta
@@ -164,6 +185,56 @@ export function ComidasScreen() {
     setSelection(null);
   }
 
+  function handleGenerar() {
+    if (!prefs) return;
+    const slots = slotsObjetivo(prefs, days, new Date());
+    const fechas = [...new Set(slots.map((s) => s.fecha))].sort();
+    if (fechas.length === 0) return;
+    const rango = { desde: fechas[0], hasta: fechas[fechas.length - 1] };
+    const despensaIngredienteIds = new Set(despensa.map((e) => e.ingredienteId));
+    setGenerateStep('idle');
+    setPropuesta(
+      planificar({
+        slots,
+        platos,
+        comidas,
+        despensaIngredienteIds,
+        semanasAntiRepeticion: prefs.semanasAntiRepeticion,
+        rango,
+      }),
+    );
+  }
+
+  async function handleAceptarPropuesta() {
+    if (!propuesta) return;
+    const asignadas = propuesta.propuestas.filter(
+      (p): p is typeof p & { platoId: string } => p.platoId !== null,
+    );
+    await Promise.all(
+      asignadas.map((p) =>
+        setComida({
+          id: comidaId(p.fecha, p.tipo),
+          fecha: p.fecha,
+          tipo: p.tipo,
+          platoId: p.platoId,
+          especial: null,
+          tags: [],
+        }),
+      ),
+    );
+    for (const p of asignadas) {
+      upsertLocalComida({
+        id: comidaId(p.fecha, p.tipo),
+        fecha: p.fecha,
+        tipo: p.tipo,
+        platoId: p.platoId,
+        especial: null,
+        tags: [],
+      });
+    }
+    setPropuesta(null);
+  }
+
   if (loading) return null;
 
   if (selection) {
@@ -177,6 +248,18 @@ export function ComidasScreen() {
         onAssignPlato={handleAssignPlato}
         onAssignEspecial={handleAssignEspecial}
         onClear={handleClear}
+      />
+    );
+  }
+
+  if (propuesta) {
+    return (
+      <PropuestaGeneradorPanel
+        propuesta={propuesta}
+        getPlatoNombre={getPlatoNombre}
+        onReroll={handleGenerar}
+        onAccept={handleAceptarPropuesta}
+        onCancel={() => setPropuesta(null)}
       />
     );
   }
@@ -217,22 +300,22 @@ export function ComidasScreen() {
           onCancel={() => setGenerateStep('idle')}
         />
       )}
-      {generateStep === 'confirm' && (
+      {generateStep === 'vacio' && (
         <ConfirmDialog
-          title={`¿Generar comida y cena del ${formatWeekRangeLabel(days)}?`}
-          message="Rellena solo los huecos vacíos; no toca lo que ya pusiste a mano."
-          confirmLabel="Generar"
-          cancelLabel="Cancelar"
-          onConfirm={() => setGenerateStep('pending')}
+          title="Nada que generar"
+          message="No quedan días en el rango configurado (Ajustes → Generador) a partir de hoy."
+          confirmLabel="Entendido"
+          onConfirm={() => setGenerateStep('idle')}
           onCancel={() => setGenerateStep('idle')}
         />
       )}
-      {generateStep === 'pending' && (
+      {generateStep === 'confirm' && prefs && (
         <ConfirmDialog
-          title="Generador en camino"
-          message="El sorteo de platos se activa en la Fase 3. La pantalla y el aviso ya están listos."
-          confirmLabel="Entendido"
-          onConfirm={() => setGenerateStep('idle')}
+          title={`¿Generar comida y cena ${describirAlcance(prefs, slotsObjetivo(prefs, days, new Date()))}?`}
+          message="Rellena solo los huecos vacíos; no toca lo que ya pusiste a mano."
+          confirmLabel="Generar"
+          cancelLabel="Cancelar"
+          onConfirm={handleGenerar}
           onCancel={() => setGenerateStep('idle')}
         />
       )}
