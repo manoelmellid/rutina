@@ -19,8 +19,8 @@ export function RestriccionesScreen() {
 
   return (
     <Placeholder
-      title="En diseño"
-      subtitle="Restricciones diarias y globales para el generador — pendiente de decidir el alcance."
+      title="Próximamente"
+      subtitle="Restricciones diarias y globales para generar las comidas y cenas."
     />
   );
 }
