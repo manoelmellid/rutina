@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import styles from './Layout.module.css';
 import { TopBar, type TopBarAction, type TopBarBack } from './TopBar';
 import { TabBar } from './TabBar';
 import type { LayoutContext } from '../lib/layoutContext';
+import { sincronizarConsumoPendiente } from '../lib/consumo';
 
 const TITLES: Record<string, string> = {
   '/': 'Hoy',
@@ -29,6 +30,13 @@ export function Layout() {
     () => ({ setTopRightAction, setTopLeftBack, setTitle }),
     [setTopRightAction, setTopLeftBack, setTitle],
   );
+
+  // Descuento silencioso de la despensa al llegar el día de un plato planificado (Fase 5).
+  // Fire-and-forget: sin loading state ni error visible — si falla, la próxima apertura de la
+  // app lo reintenta (es idempotente).
+  useEffect(() => {
+    sincronizarConsumoPendiente(new Date());
+  }, []);
 
   return (
     <div className={styles.page}>

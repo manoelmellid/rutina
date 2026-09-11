@@ -10,6 +10,7 @@ import { IconCarta, IconSparkles } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { describirAlcance, planificar, slotsObjetivo, type ResultadoGeneracion } from '../lib/generador';
+import { sincronizarConsumoComida } from '../lib/consumo';
 import {
   comidaId,
   getAllComidas,
@@ -62,6 +63,7 @@ export function ComidasScreen() {
   }, []);
 
   const days = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+  const platoById = useMemo(() => new Map(platos.map((p) => [p.id, p])), [platos]);
 
   useEffect(() => {
     if (selection || propuesta) {
@@ -150,6 +152,7 @@ export function ComidasScreen() {
 
   async function handleAssignPlato(platoId: string) {
     if (!selection) return;
+    const existing = getComida(selection.fecha, selection.tipo);
     const c: Comida = {
       id: comidaId(selection.fecha, selection.tipo),
       fecha: selection.fecha,
@@ -157,14 +160,19 @@ export function ComidasScreen() {
       platoId,
       especial: null,
       tags: [],
+      consumoAplicado: existing?.consumoAplicado ?? null,
     };
     await setComida(c);
-    upsertLocalComida(c);
+    // Fase 5: si el día ya toca (hoy o pasado), ajusta la despensa — revierte lo del plato
+    // anterior si lo había y aplica lo del nuevo.
+    const actualizada = await sincronizarConsumoComida(c, platoById, new Date());
+    upsertLocalComida(actualizada ?? c);
     setSelection(null);
   }
 
   async function handleAssignEspecial(especial: Especial, tags: string[]) {
     if (!selection) return;
+    const existing = getComida(selection.fecha, selection.tipo);
     const c: Comida = {
       id: comidaId(selection.fecha, selection.tipo),
       fecha: selection.fecha,
@@ -172,14 +180,25 @@ export function ComidasScreen() {
       platoId: null,
       especial,
       tags,
+      consumoAplicado: existing?.consumoAplicado ?? null,
     };
     await setComida(c);
-    upsertLocalComida(c);
+    const actualizada = await sincronizarConsumoComida(c, platoById, new Date());
+    upsertLocalComida(actualizada ?? c);
     setSelection(null);
   }
 
   async function handleClear() {
     if (!selection) return;
+    const existing = getComida(selection.fecha, selection.tipo);
+    if (existing) {
+      // Si ya se había descontado, devolver esa cantidad a la despensa antes de borrar la fila.
+      await sincronizarConsumoComida(
+        { ...existing, platoId: null, especial: null, tags: [] },
+        platoById,
+        new Date(),
+      );
+    }
     await clearComida(selection.fecha, selection.tipo);
     setComidas((prev) => prev.filter((c) => c.id !== comidaId(selection.fecha, selection.tipo)));
     setSelection(null);
@@ -219,6 +238,7 @@ export function ComidasScreen() {
           platoId: p.platoId,
           especial: null,
           tags: [],
+          consumoAplicado: null,
         }),
       ),
     );
@@ -230,6 +250,7 @@ export function ComidasScreen() {
         platoId: p.platoId,
         especial: null,
         tags: [],
+        consumoAplicado: null,
       });
     }
     setPropuesta(null);
