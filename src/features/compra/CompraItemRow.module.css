@@ -36,6 +36,7 @@
 }
 
 .nombre {
+  margin: 0;
   font-size: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -48,11 +49,13 @@
 }
 
 .cantidad {
+  margin: 2px 0 0;
   font-size: 13px;
   color: var(--color-text-secondary);
 }
 
 .origen {
+  margin: 2px 0 0;
   font-size: 12px;
   color: var(--color-text-secondary);
 }
