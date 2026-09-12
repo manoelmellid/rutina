@@ -37,18 +37,17 @@ export function TopBar({ title, action, back }: TopBarProps) {
               <button
                 key={a.label}
                 type="button"
-                className={[
-                  styles.gearButton,
-                  a.variant && styles[a.variant],
-                  a.showLabel && styles.withLabel,
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+                className={[styles.gearButton, a.variant && styles[a.variant]].filter(Boolean).join(' ')}
                 onClick={a.onClick}
                 aria-label={a.label}
               >
                 {a.icon}
-                {a.showLabel && <span className={styles.gearLabel}>{a.label}</span>}
+                {/* Siempre se renderiza (incluso sin showLabel), oculta con visibility en vez de
+                    no montarla, para que el icono quede a la misma altura en los 4 botones —
+                    solo visibility:hidden reserva el hueco sin mostrar el texto. */}
+                <span className={`${styles.gearLabel} ${a.showLabel ? '' : styles.gearLabelHidden}`}>
+                  {a.label}
+                </span>
               </button>
             ))}
           </div>
