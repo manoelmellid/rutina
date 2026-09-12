@@ -8,8 +8,9 @@ import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComi
 // onTouchEnd más abajo) — nunca se queda bloqueado, siempre se puede seguir avanzando semana a
 // semana. Solo VISIBLE_WEEKS se ven a la vez (el alto de .weekRow en el CSS está calculado para
 // que encajen exactamente 3, ver el calc() ahí — si cambias este número, cambia también el
-// divisor en el CSS). El scroll es "por páginas": arrastre libre, pero al soltar siempre encaja
-// en un múltiplo de VISIBLE_WEEKS semanas completas, nunca a medias.
+// divisor en el CSS). El scroll tiene inercia real (arrastre libre + deceleración por fricción,
+// ver el efecto táctil más abajo); solo al asentarse engancha a un múltiplo de VISIBLE_WEEKS
+// semanas completas, nunca a medias.
 const RANGO_INICIAL = 8; // semanas antes/después de la actual, al arrancar
 const AMPLIACION = 8; // semanas que se añaden de golpe al acercarse a un borde
 const VISIBLE_WEEKS = 3;
@@ -39,10 +40,12 @@ function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>):
 
 /**
  * Nombre del mes a mostrar junto al número de día, o `null` si no toca. Se muestra en tres casos:
- * el día 1 de cualquier mes, el último día de cualquier mes, y la primera celda de todo el rango
- * renderizado (ancla superior izquierda) — este último caso es necesario porque las semanas no
- * están virtualizadas (todas viven en el DOM) y el scroll puede empezar en cualquier punto del
- * mes, sin pasar nunca por un cambio de mes real.
+ * el día 1 de cualquier mes, el último día de cualquier mes, y el lunes de la semana que esté
+ * AHORA MISMO arriba del todo de las VISIBLE_WEEKS visibles (`esAncla`, calculado en el render a
+ * partir de `topOffset` — no de `minOffset`: es dinámico, sigue al scroll, no al principio fijo
+ * del array). Sin esto, un rango de semanas que cae entero dentro de un mismo mes (sin pasar por
+ * ningún día 1 ni último día) se queda sin ninguna etiqueta visible — ver CLAUDE.md, ejemplo real
+ * reportado por el usuario con el rango 7–27 de septiembre.
  */
 function mesLabelPara(date: Date, esAncla: boolean): string | null {
   const esUltimoDiaDelMes = addDays(date, 1).getMonth() !== date.getMonth();
@@ -79,10 +82,22 @@ export function MesScreen() {
   const [loading, setLoading] = useState(true);
   const [minOffset, setMinOffset] = useState(-RANGO_INICIAL);
   const [maxOffset, setMaxOffset] = useState(RANGO_INICIAL);
+  // Offset (no índice de array) de la semana que está actualmente arriba del todo de las
+  // VISIBLE_WEEKS visibles — se usa para la celda "ancla" de mesLabelPara. Offset y no índice a
+  // propósito: una ampliación por delante (minOffset) desplaza todos los índices del array pero
+  // el offset de una semana ya existente no cambia nunca.
+  const [topOffset, setTopOffset] = useState<number | null>(null);
   const weeksScrollRef = useRef<HTMLDivElement | null>(null);
   // Índice (en términos del array YA ampliado) al que hay que saltar en cuanto las filas nuevas
   // estén en el DOM — solo se usa cuando onTouchEnd amplía el rango; null = nada pendiente.
   const pendingSnapRef = useRef<number | null>(null);
+  // minOffset leído dentro del efecto táctil (deps solo `[loading]`, ver más abajo) tiene que
+  // venir de una ref, no de la variable de estado directamente, por la misma razón que
+  // semanasLengthRef: el efecto no se recrea cuando minOffset cambia.
+  const minOffsetRef = useRef(minOffset);
+  useEffect(() => {
+    minOffsetRef.current = minOffset;
+  }, [minOffset]);
 
   const semanas = useMemo(() => {
     const arr = [];
@@ -131,6 +146,7 @@ export function MesScreen() {
       const paso = medirPaso(el);
       if (paso > 0) {
         el.scrollTop = (-minOffset - 1) * paso;
+        setTopOffset(-1); // la semana justo antes de "hoy" queda arriba del todo al centrar
         centrado = true;
       }
     }
@@ -189,20 +205,61 @@ export function MesScreen() {
       animacionId = 0;
     }
 
+    const DURACION_ENGANCHE = 220; // ms — asentamiento suave (easeOutCubic), no un salto brusco
+
     /**
-     * Ajusta scrollTop al múltiplo de semana completa más cercano; amplía el rango si hace falta.
-     * `deseado` es la posición SIN clampar (ver por qué en el comentario de más abajo, en
-     * onTouchMove) — nunca se lee `el.scrollTop` para decidir el índice objetivo, porque el
-     * navegador ya lo habría clampado en el borde, ocultando que el usuario quería ir más allá.
+     * Anima `scrollTop` desde su posición actual hasta `destino` con una curva de deceleración
+     * (easeOutCubic), en vez de saltar de golpe. Es el "tirón" que se siente al soltar a mitad de
+     * una semana con poca velocidad — antes era una asignación instantánea (`el.scrollTop =
+     * destino`), que se sentía como un salto seco comparado con el scroll con inercia de macOS
+     * Calendar que el usuario pidió imitar. `behavior: 'smooth'` sigue sin usarse (comprobado que
+     * no funciona en el entorno de desarrollo, ver CLAUDE.md) — esta es una animación manual con
+     * `requestAnimationFrame`, igual que la de inercia de `lanzarMomentum` más abajo.
+     */
+    function animarEnganche(el: HTMLDivElement, destino: number) {
+      detenerMomentum();
+      const origen = el.scrollTop;
+      const distancia = destino - origen;
+      if (Math.abs(distancia) < 1) {
+        el.scrollTop = destino;
+        return;
+      }
+      const inicio = performance.now();
+      function frame(ahora: number) {
+        const t = Math.min(1, (ahora - inicio) / DURACION_ENGANCHE);
+        const suavizado = 1 - (1 - t) ** 3;
+        el.scrollTop = origen + distancia * suavizado;
+        if (t < 1) {
+          animacionId = requestAnimationFrame(frame);
+        } else {
+          animacionId = 0;
+        }
+      }
+      animacionId = requestAnimationFrame(frame);
+    }
+
+    /**
+     * Ajusta scrollTop al múltiplo de semana completa más cercano (con una animación suave, ver
+     * `animarEnganche`); amplía el rango si hace falta. `deseado` es la posición SIN clampar (ver
+     * por qué en el comentario de más abajo, en onTouchMove) — nunca se lee `el.scrollTop` para
+     * decidir el índice objetivo, porque el navegador ya lo habría clampado en el borde,
+     * ocultando que el usuario quería ir más allá.
      */
     function engancharSemana(el: HTMLDivElement, deseado: number) {
       const paso = medirPaso(el);
       if (paso <= 0) return;
       const indiceObjetivo = Math.round(deseado / paso);
+      // offset (no índice) de la semana que va a quedar arriba del todo — válido en los 3 casos
+      // de abajo por igual, porque ampliar el rango nunca cambia el offset de una semana ya
+      // existente, solo su índice dentro del array (ver el comentario de topOffset más arriba).
+      setTopOffset(minOffsetRef.current + indiceObjetivo);
 
       if (indiceObjetivo < 0) {
         // Ampliar por delante inserta AMPLIACION filas nuevas antes del índice 0 actual — el
         // índice objetivo, en términos del array ya ampliado, se desplaza esa misma cantidad.
+        // Instantáneo a propósito (vía pendingSnapRef + useLayoutEffect, no animarEnganche): cruzar
+        // a territorio recién cargado es un caso distinto al enganche normal dentro del rango ya
+        // visible, y la asignación antes de pintar evita cualquier parpadeo con las filas nuevas.
         pendingSnapRef.current = indiceObjetivo + AMPLIACION;
         setMinOffset((m) => m - AMPLIACION);
         return;
@@ -214,10 +271,7 @@ export function MesScreen() {
         setMaxOffset((m) => m + AMPLIACION);
         return;
       }
-      // `behavior: 'smooth'` no funciona en este contexto (comprobado con una prueba aislada:
-      // `el.scrollTo({top, behavior:'smooth'})` no movía nada en absoluto durante más de un
-      // segundo, mientras que la asignación instantánea sí) — instantáneo es lo único verificado.
-      el.scrollTop = indiceObjetivo * paso;
+      animarEnganche(el, indiceObjetivo * paso);
     }
 
     const FRICCION = 0.95; // factor de deceleración por frame (~16ms)
@@ -343,7 +397,7 @@ export function MesScreen() {
                 {dias.map((date, dayIndex) => {
                   const fecha = toISODate(date);
                   const today = isSameDate(date, new Date());
-                  const esAncla = offset === minOffset && dayIndex === 0;
+                  const esAncla = offset === topOffset && dayIndex === 0;
                   const mesLabel = mesLabelPara(date, esAncla);
                   return (
                     <button
