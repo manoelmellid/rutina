@@ -25,7 +25,8 @@
   align-items: center;
   padding: 14px 4px 14px 12px;
   font-size: 19px;
-  color: var(--color-text-secondary);
+  font-weight: 700;
+  color: var(--color-accent);
 }
 
 .motivoCaducidad {
