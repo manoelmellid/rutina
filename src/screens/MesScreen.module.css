@@ -41,6 +41,13 @@
   font-weight: 700;
 }
 
+.todayButton {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
 .grid {
   flex: 1;
   display: flex;

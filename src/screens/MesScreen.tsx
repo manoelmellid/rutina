@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './MesScreen.module.css';
-import { addDays, formatMonthLabel, getWeekDays, isSameDate, toISODate } from '../lib/week';
+import { formatMonthLabel, getWeekDays, isSameDate, toISODate } from '../lib/week';
 import { getAllPlatos, getComidasEnRango, type Comida, type Plato, type TipoComida } from '../lib/db';
 
 // Rango inicial (~2 meses a cada lado); se AMPLÍA sobre la marcha al acercarse a un borde (ver
@@ -39,17 +39,18 @@ function resumenSlot(comida: Comida | undefined, platoById: Map<string, Plato>):
 }
 
 /**
- * Nombre del mes a mostrar junto al número de día, o `null` si no toca. Se muestra en tres casos:
- * el día 1 de cualquier mes, el último día de cualquier mes, y el lunes de la semana que esté
- * AHORA MISMO arriba del todo de las VISIBLE_WEEKS visibles (`esAncla`, calculado en el render a
- * partir de `topOffset` — no de `minOffset`: es dinámico, sigue al scroll, no al principio fijo
- * del array). Sin esto, un rango de semanas que cae entero dentro de un mismo mes (sin pasar por
- * ningún día 1 ni último día) se queda sin ninguna etiqueta visible — ver CLAUDE.md, ejemplo real
- * reportado por el usuario con el rango 7–27 de septiembre.
+ * Nombre del mes a mostrar junto al número de día, o `null` si no toca. Se muestra en dos casos:
+ * el día 1 de cualquier mes, y el lunes de la semana que esté AHORA MISMO arriba del todo de las
+ * VISIBLE_WEEKS visibles (`esAncla`, calculado en el render a partir de `topOffset` — no de
+ * `minOffset`: es dinámico, sigue al scroll, no al principio fijo del array). Sin `esAncla`, un
+ * rango de semanas que cae entero dentro de un mismo mes (sin pasar por ningún día 1) se queda sin
+ * ninguna etiqueta visible — ver CLAUDE.md, ejemplo real reportado por el usuario con el rango
+ * 7–27 de septiembre. NO se muestra en el último día del mes (se quitó ese tercer caso): como
+ * ninguna semana está virtualizada, el último día de un mes y el día 1 del siguiente son celdas
+ * adyacentes, así que mostrar ambas es redundante — el día 1 ya anuncia el cambio de mes.
  */
 function mesLabelPara(date: Date, esAncla: boolean): string | null {
-  const esUltimoDiaDelMes = addDays(date, 1).getMonth() !== date.getMonth();
-  if (date.getDate() === 1 || esUltimoDiaDelMes || esAncla) return formatMonthLabel(date);
+  if (date.getDate() === 1 || esAncla) return formatMonthLabel(date);
   return null;
 }
 
@@ -98,6 +99,54 @@ export function MesScreen() {
   useEffect(() => {
     minOffsetRef.current = minOffset;
   }, [minOffset]);
+
+  // `animacionId` como ref (no variable de closure) para que tanto el efecto táctil de más abajo
+  // como el botón "Hoy" del header puedan lanzar/cancelar la misma animación de enganche.
+  const animacionIdRef = useRef(0);
+  const DURACION_ENGANCHE = 220; // ms — asentamiento suave (easeOutCubic), no un salto brusco
+
+  function detenerMomentum() {
+    if (animacionIdRef.current) cancelAnimationFrame(animacionIdRef.current);
+    animacionIdRef.current = 0;
+  }
+
+  /**
+   * Anima `scrollTop` desde su posición actual hasta `destino` con una curva de deceleración
+   * (easeOutCubic), en vez de saltar de golpe. `behavior: 'smooth'` no se usa (comprobado que no
+   * funciona en el entorno de desarrollo, ver CLAUDE.md) — animación manual con
+   * `requestAnimationFrame`. Se usa tanto para el enganche al soltar el gesto como para el botón
+   * "Hoy".
+   */
+  function animarEnganche(el: HTMLDivElement, destino: number) {
+    detenerMomentum();
+    const origen = el.scrollTop;
+    const distancia = destino - origen;
+    if (Math.abs(distancia) < 1) {
+      el.scrollTop = destino;
+      return;
+    }
+    const inicio = performance.now();
+    function frame(ahora: number) {
+      const t = Math.min(1, (ahora - inicio) / DURACION_ENGANCHE);
+      const suavizado = 1 - (1 - t) ** 3;
+      el.scrollTop = origen + distancia * suavizado;
+      if (t < 1) {
+        animacionIdRef.current = requestAnimationFrame(frame);
+      } else {
+        animacionIdRef.current = 0;
+      }
+    }
+    animacionIdRef.current = requestAnimationFrame(frame);
+  }
+
+  function irAHoy() {
+    const el = weeksScrollRef.current;
+    if (!el) return;
+    const paso = medirPaso(el);
+    if (paso <= 0) return;
+    animarEnganche(el, (-minOffsetRef.current - 1) * paso);
+    setTopOffset(-1);
+  }
 
   const semanas = useMemo(() => {
     const arr = [];
@@ -198,45 +247,6 @@ export function MesScreen() {
     let ultimaX = 0;
     let ultimoT = 0;
     let velocidad = 0; // px de scrollTop por ms
-    let animacionId = 0;
-
-    function detenerMomentum() {
-      if (animacionId) cancelAnimationFrame(animacionId);
-      animacionId = 0;
-    }
-
-    const DURACION_ENGANCHE = 220; // ms — asentamiento suave (easeOutCubic), no un salto brusco
-
-    /**
-     * Anima `scrollTop` desde su posición actual hasta `destino` con una curva de deceleración
-     * (easeOutCubic), en vez de saltar de golpe. Es el "tirón" que se siente al soltar a mitad de
-     * una semana con poca velocidad — antes era una asignación instantánea (`el.scrollTop =
-     * destino`), que se sentía como un salto seco comparado con el scroll con inercia de macOS
-     * Calendar que el usuario pidió imitar. `behavior: 'smooth'` sigue sin usarse (comprobado que
-     * no funciona en el entorno de desarrollo, ver CLAUDE.md) — esta es una animación manual con
-     * `requestAnimationFrame`, igual que la de inercia de `lanzarMomentum` más abajo.
-     */
-    function animarEnganche(el: HTMLDivElement, destino: number) {
-      detenerMomentum();
-      const origen = el.scrollTop;
-      const distancia = destino - origen;
-      if (Math.abs(distancia) < 1) {
-        el.scrollTop = destino;
-        return;
-      }
-      const inicio = performance.now();
-      function frame(ahora: number) {
-        const t = Math.min(1, (ahora - inicio) / DURACION_ENGANCHE);
-        const suavizado = 1 - (1 - t) ** 3;
-        el.scrollTop = origen + distancia * suavizado;
-        if (t < 1) {
-          animacionId = requestAnimationFrame(frame);
-        } else {
-          animacionId = 0;
-        }
-      }
-      animacionId = requestAnimationFrame(frame);
-    }
 
     /**
      * Ajusta scrollTop al múltiplo de semana completa más cercano (con una animación suave, ver
@@ -295,13 +305,13 @@ export function MesScreen() {
         el.scrollTop = Math.max(0, Math.min(pos, max));
         const alcanzoBorde = pos <= 0 || pos >= max;
         if (Math.abs(v) > UMBRAL_PARAR && !alcanzoBorde) {
-          animacionId = requestAnimationFrame(frame);
+          animacionIdRef.current = requestAnimationFrame(frame);
         } else {
-          animacionId = 0;
+          animacionIdRef.current = 0;
           engancharSemana(el, pos);
         }
       }
-      animacionId = requestAnimationFrame(frame);
+      animacionIdRef.current = requestAnimationFrame(frame);
     }
 
     function onTouchStart(e: TouchEvent) {
@@ -380,6 +390,11 @@ export function MesScreen() {
           ‹ Comidas
         </button>
         <h1 className={styles.title}>Mes</h1>
+        {topOffset !== null && topOffset !== -1 && (
+          <button type="button" className={styles.todayButton} onClick={irAHoy}>
+            Hoy
+          </button>
+        )}
       </div>
 
       {!loading && (
