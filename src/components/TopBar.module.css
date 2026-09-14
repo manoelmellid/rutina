@@ -47,8 +47,9 @@
    siempre a la misma altura — ver el comentario en TopBar.tsx sobre por qué el <span> de la
    etiqueta se renderiza siempre, solo oculto con visibility cuando no toca mostrarla. */
 .gearButton {
-  width: 40px;
+  min-width: 40px;
   height: 44px;
+  padding: 0 2px;
   display: flex;
   flex-direction: column;
   align-items: center;

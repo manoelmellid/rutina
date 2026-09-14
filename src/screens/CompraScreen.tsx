@@ -69,11 +69,13 @@ export function CompraScreen() {
       {
         icon: <IconDespensa />,
         label: 'Despensa',
+        showLabel: true,
         onClick: () => navigate('/compra/despensa'),
       },
       {
         icon: <IconIngredientes />,
         label: 'Ingredientes',
+        showLabel: true,
         onClick: () => navigate('/compra/ingredientes'),
       },
     ]);
