@@ -33,26 +33,29 @@ export interface GeneradorInput {
 
 /**
  * Decide qué (fecha, tipo) entran en el sorteo según `Preferencias.alcanceGenerador`.
- * `semanaEnVista`: la semana en vista (`days`), recortada a partir de hoy y hasta el primer
- * día cuyo `getDay() === alcanceDiaFin` (domingo=0 cae en el último día → semana entera).
- * `diasAdelante`: `alcanceDiasAdelante` días a partir de hoy, sin importar la semana en vista.
+ * `semanaEnVista`: desde hoy hasta la PRÓXIMA fecha (incluido hoy) cuyo `getDay() ===
+ * alcanceDiaFin` — puramente relativo a hoy, nunca a qué semana esté en vista en Comidas. Si ese
+ * día de la semana ya pasó esta semana, salta a la semana siguiente (máx. 6 días por delante) en
+ * vez de dar un rango vacío. `diasAdelante`: `alcanceDiasAdelante` días a partir de hoy.
  */
-export function slotsObjetivo(prefs: Preferencias, days: Date[], hoy: Date): SlotObjetivo[] {
-  const hoyISO = toISODate(hoy);
+export function slotsObjetivo(prefs: Preferencias, hoy: Date): SlotObjetivo[] {
   let fechas: string[];
 
   if (prefs.alcanceGenerador === 'diasAdelante') {
     fechas = Array.from({ length: prefs.alcanceDiasAdelante }, (_, i) => toISODate(addDays(hoy, i)));
   } else {
-    const finIdx = days.findIndex((d) => d.getDay() === prefs.alcanceDiaFin);
-    const hasta = finIdx === -1 ? days.length - 1 : finIdx;
-    fechas = days
-      .slice(0, hasta + 1)
-      .map(toISODate)
-      .filter((f) => f >= hoyISO);
+    let dias = 0;
+    while (addDays(hoy, dias).getDay() !== prefs.alcanceDiaFin && dias < 6) dias++;
+    fechas = Array.from({ length: dias + 1 }, (_, i) => toISODate(addDays(hoy, i)));
   }
 
   return fechas.flatMap((fecha) => TIPOS.map((tipo) => ({ fecha, tipo })));
+}
+
+/** Slots de `slots` que todavía no tienen una `Comida` asignada (ni por el usuario ni por una generación previa). */
+export function huecosVacios(slots: SlotObjetivo[], comidas: Comida[]): SlotObjetivo[] {
+  const comidaByKey = new Map(comidas.map((c) => [c.id, c]));
+  return slots.filter((s) => !comidaByKey.has(comidaId(s.fecha, s.tipo)));
 }
 
 /** Frase para el diálogo de confirmación, p. ej. "del 8 sept – 10 sept" / "de los próximos 3 días (…)". */
@@ -139,8 +142,7 @@ function crearElegidor(input: GeneradorInput, usadosEstaTanda: Set<string>) {
  */
 export function planificar(input: GeneradorInput): ResultadoGeneracion {
   const rng = input.rng ?? Math.random;
-  const comidaByKey = new Map(input.comidas.map((c) => [c.id, c]));
-  const huecos = input.slots.filter((s) => !comidaByKey.has(comidaId(s.fecha, s.tipo)));
+  const huecos = huecosVacios(input.slots, input.comidas);
 
   const usadosEstaTanda = new Set<string>();
   for (const c of input.comidas) {

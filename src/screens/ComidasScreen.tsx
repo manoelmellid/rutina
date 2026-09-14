@@ -11,6 +11,7 @@ import type { LayoutContext } from '../lib/layoutContext';
 import { getWeekDays, toISODate } from '../lib/week';
 import {
   describirAlcance,
+  huecosVacios,
   planificar,
   rehacerSlot,
   slotsObjetivo,
@@ -18,6 +19,7 @@ import {
   type ResultadoGeneracion,
 } from '../lib/generador';
 import { sincronizarConsumoComida } from '../lib/consumo';
+import { useSubViewHistory } from '../lib/useSubViewHistory';
 import { ingredientesUrgentes } from '../lib/despensa';
 import {
   comidaId,
@@ -62,10 +64,14 @@ export function ComidasScreen() {
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<SlotSelection | null>(null);
-  const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'vacio' | 'confirm'>('idle');
+  const [generateStep, setGenerateStep] = useState<'idle' | 'past' | 'vacio' | 'completo' | 'confirm'>(
+    'idle',
+  );
   const [propuesta, setPropuesta] = useState<ResultadoGeneracion | null>(null);
   const [generadorInput, setGeneradorInput] = useState<GeneradorInput | null>(null);
   const [readyToReveal, setReadyToReveal] = useState(false);
+  const { close: closeSelection } = useSubViewHistory(selection !== null, () => setSelection(null));
+  const { close: closePropuesta } = useSubViewHistory(propuesta !== null, () => setPropuesta(null));
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
   const targetCardRef = useRef<HTMLDivElement | null>(null);
@@ -110,8 +116,14 @@ export function ComidasScreen() {
             return;
           }
           if (!prefs) return;
-          const slots = slotsObjetivo(prefs, days, new Date());
-          setGenerateStep(slots.length === 0 ? 'vacio' : 'confirm');
+          const slots = slotsObjetivo(prefs, new Date());
+          if (slots.length === 0) {
+            setGenerateStep('vacio');
+          } else if (huecosVacios(slots, comidas).length === 0) {
+            setGenerateStep('completo');
+          } else {
+            setGenerateStep('confirm');
+          }
         },
       },
       {
@@ -129,7 +141,7 @@ export function ComidasScreen() {
       },
     ]);
     return () => setTopRightAction(null);
-  }, [setTopRightAction, navigate, selection, propuesta, weekOffset, prefs, days]);
+  }, [setTopRightAction, navigate, selection, propuesta, weekOffset, prefs, comidas]);
 
   // Coloca la vista en `targetFecha` (hoy por defecto, o el día que se tocó desde Mes) cuando esa
   // fecha cae en la semana visible; si no (p. ej. navegando con ‹/› a otra semana), vuelve al
@@ -245,7 +257,7 @@ export function ComidasScreen() {
 
   function handleGenerar() {
     if (!prefs) return;
-    const slots = slotsObjetivo(prefs, days, new Date());
+    const slots = slotsObjetivo(prefs, new Date());
     const fechas = [...new Set(slots.map((s) => s.fecha))].sort();
     if (fechas.length === 0) return;
     const rango = { desde: fechas[0], hasta: fechas[fechas.length - 1] };
@@ -317,7 +329,7 @@ export function ComidasScreen() {
         tipo={selection.tipo}
         platos={platos}
         currentComida={getComida(selection.fecha, selection.tipo)}
-        onClose={() => setSelection(null)}
+        onClose={closeSelection}
         onAssignPlato={handleAssignPlato}
         onAssignEspecial={handleAssignEspecial}
         onClear={handleClear}
@@ -333,7 +345,7 @@ export function ComidasScreen() {
         onReroll={handleGenerar}
         onRerollSlot={handleRerollSlot}
         onAccept={handleAceptarPropuesta}
-        onCancel={() => setPropuesta(null)}
+        onCancel={closePropuesta}
       />
     );
   }
@@ -382,9 +394,18 @@ export function ComidasScreen() {
           onCancel={() => setGenerateStep('idle')}
         />
       )}
+      {generateStep === 'completo' && (
+        <ConfirmDialog
+          title="Ya está todo generado"
+          message="Ya tienes plato asignado en todos los huecos de ese rango. Si quieres generar alguno en concreto, quita antes su asignación."
+          confirmLabel="Entendido"
+          onConfirm={() => setGenerateStep('idle')}
+          onCancel={() => setGenerateStep('idle')}
+        />
+      )}
       {generateStep === 'confirm' && prefs && (
         <ConfirmDialog
-          title={`¿Generar comida y cena ${describirAlcance(prefs, slotsObjetivo(prefs, days, new Date()))}?`}
+          title={`¿Generar comida y cena ${describirAlcance(prefs, slotsObjetivo(prefs, new Date()))}?`}
           message="Rellena solo los huecos vacíos, y no toca lo que ya pusiste a mano."
           confirmLabel="Generar"
           cancelLabel="Cancelar"
