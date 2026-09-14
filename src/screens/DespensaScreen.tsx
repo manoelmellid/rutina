@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import styles from './DespensaScreen.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
+import { useSubViewHistory } from '../lib/useSubViewHistory';
 import { IconPlus } from '../components/icons';
 import { formatCantidad, parseCantidad, UNIDAD_LABEL } from '../lib/units';
 import {
@@ -40,6 +41,7 @@ export function DespensaScreen() {
   const [view, setView] = useState<View>({ mode: 'list' });
   const { setTopLeftBack, setTitle, setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
+  const { close } = useSubViewHistory(view.mode !== 'list', () => setView({ mode: 'list' }));
 
   async function refetch() {
     const days = getWeekDays(0);
@@ -77,11 +79,11 @@ export function DespensaScreen() {
       setTopRightAction({ icon: <IconPlus />, label: 'Añadir', onClick: () => setView({ mode: 'add' }) });
     } else if (view.mode === 'add') {
       setTitle('Añadir a la despensa');
-      setTopLeftBack({ label: 'Despensa', onClick: () => setView({ mode: 'list' }) });
+      setTopLeftBack({ label: 'Despensa', onClick: close });
       setTopRightAction(null);
     } else {
       setTitle(ingMap.get(view.ingredienteId)?.nombre ?? 'Ingrediente');
-      setTopLeftBack({ label: 'Despensa', onClick: () => setView({ mode: 'list' }) });
+      setTopLeftBack({ label: 'Despensa', onClick: close });
       setTopRightAction(null);
     }
     return () => {
@@ -89,7 +91,7 @@ export function DespensaScreen() {
       setTopLeftBack(null);
       setTopRightAction(null);
     };
-  }, [view, ingMap, setTitle, setTopLeftBack, setTopRightAction, navigate]);
+  }, [view, ingMap, setTitle, setTopLeftBack, setTopRightAction, navigate, close]);
 
   if (loading) return null;
 

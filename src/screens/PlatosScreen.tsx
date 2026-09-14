@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { PlatoDetail } from '../features/comidas/PlatoDetail';
 import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import { IconPlus } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
+import { useSubViewHistory } from '../lib/useSubViewHistory';
 import {
   deletePlato,
   getAllCategorias,
@@ -39,6 +40,30 @@ export function PlatosScreen() {
   // escribe en IndexedDB al crearlo (a diferencia de antes), así que "atrás" sin guardar no deja
   // rastro y no hace falta revertir nada.
   const [draftPlato, setDraftPlato] = useState<Plato | null>(null);
+  // Posición de scroll de la lista (vive en el `.content` de Layout, no en esta pantalla — ver
+  // `app-content-scroll`) al entrar a un plato, para restaurarla al volver.
+  const scrollPosRef = useRef(0);
+
+  const selectedPlato =
+    draftPlato && draftPlato.id === selectedId ? draftPlato : (platos.find((p) => p.id === selectedId) ?? null);
+
+  const { close: closeDetail } = useSubViewHistory(selectedId !== null, () => {
+    setDraftPlato(null);
+    setSelectedId(null);
+  });
+
+  // Al volver del detalle, restaura el scroll de la lista (síncrono, antes de pintar).
+  useLayoutEffect(() => {
+    if (selectedPlato) return;
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    if (el) el.scrollTop = scrollPosRef.current;
+  }, [selectedPlato]);
+
+  function abrirPlato(id: string) {
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    scrollPosRef.current = el?.scrollTop ?? 0;
+    setSelectedId(id);
+  }
 
   useEffect(() => {
     Promise.all([getAllPlatos(), getAllIngredientes(), getAllComidas(), getAllCategorias()]).then(
@@ -52,18 +77,12 @@ export function PlatosScreen() {
     );
   }, []);
 
-  const selectedPlato =
-    draftPlato && draftPlato.id === selectedId ? draftPlato : (platos.find((p) => p.id === selectedId) ?? null);
-
   useEffect(() => {
     if (selectedPlato) {
       setTitle(draftPlato ? 'Nuevo plato' : selectedPlato.nombre);
       setTopLeftBack({
         label: 'Platos',
-        onClick: () => {
-          setDraftPlato(null);
-          setSelectedId(null);
-        },
+        onClick: closeDetail,
       });
       setTopRightAction(null);
     } else {
@@ -76,7 +95,7 @@ export function PlatosScreen() {
       setTopLeftBack(null);
       setTopRightAction(null);
     };
-  }, [selectedPlato, draftPlato, setTitle, setTopLeftBack, setTopRightAction, navigate]);
+  }, [selectedPlato, draftPlato, setTitle, setTopLeftBack, setTopRightAction, navigate, closeDetail]);
 
   const filtered = useMemo(() => {
     const sorted = [...platos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -86,6 +105,8 @@ export function PlatosScreen() {
   }, [platos, query]);
 
   function handleCreate() {
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    scrollPosRef.current = el?.scrollTop ?? 0;
     const plato: Plato = {
       id: newId(),
       nombre: '',
@@ -168,7 +189,7 @@ export function PlatosScreen() {
           <p className={sharedStyles.emptyHint}>Ningún plato coincide con "{query.trim()}".</p>
         )}
         {filtered.map((p) => (
-          <button key={p.id} type="button" className={sharedStyles.row} onClick={() => setSelectedId(p.id)}>
+          <button key={p.id} type="button" className={sharedStyles.row} onClick={() => abrirPlato(p.id)}>
             <span>{p.nombre}</span>
             <span className={sharedStyles.rowSecondary}>›</span>
           </button>

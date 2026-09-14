@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { IngredienteDetail } from '../features/compra/IngredienteDetail';
 import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import type { LayoutContext } from '../lib/layoutContext';
+import { useSubViewHistory } from '../lib/useSubViewHistory';
 import {
   deleteIngrediente,
   getAllIngredientes,
@@ -34,11 +35,27 @@ export function IngredientesScreen() {
   }, []);
 
   const selected = ingredientes.find((i) => i.id === selectedId) ?? null;
+  // Posición de scroll de la lista (vive en el `.content` de Layout, no en esta pantalla).
+  const scrollPosRef = useRef(0);
+
+  const { close: closeDetail } = useSubViewHistory(selectedId !== null, () => setSelectedId(null));
+
+  useLayoutEffect(() => {
+    if (selected) return;
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    if (el) el.scrollTop = scrollPosRef.current;
+  }, [selected]);
+
+  function abrirIngrediente(id: string) {
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    scrollPosRef.current = el?.scrollTop ?? 0;
+    setSelectedId(id);
+  }
 
   useEffect(() => {
     if (selected) {
       setTitle(selected.nombre);
-      setTopLeftBack({ label: 'Ingredientes', onClick: () => setSelectedId(null) });
+      setTopLeftBack({ label: 'Ingredientes', onClick: closeDetail });
     } else {
       setTitle(null);
       setTopLeftBack({ label: 'Compra', onClick: () => navigate('/compra') });
@@ -47,7 +64,7 @@ export function IngredientesScreen() {
       setTitle(null);
       setTopLeftBack(null);
     };
-  }, [selected, setTitle, setTopLeftBack, navigate]);
+  }, [selected, setTitle, setTopLeftBack, navigate, closeDetail]);
 
   const filtered = useMemo(() => {
     const sorted = [...ingredientes].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -67,6 +84,8 @@ export function IngredientesScreen() {
   async function handleCreate() {
     const nombre = query.trim();
     if (!nombre) return;
+    const el = document.querySelector<HTMLElement>('.app-content-scroll');
+    scrollPosRef.current = el?.scrollTop ?? 0;
     const ingrediente: Ingrediente = {
       id: newId(),
       nombre,
@@ -142,7 +161,7 @@ export function IngredientesScreen() {
             key={i.id}
             type="button"
             className={sharedStyles.row}
-            onClick={() => setSelectedId(i.id)}
+            onClick={() => abrirIngrediente(i.id)}
           >
             <span>{i.nombre}</span>
             <span className={sharedStyles.rowSecondary}>›</span>
