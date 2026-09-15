@@ -51,9 +51,10 @@ export function AsignarComidaPanel({
   }, [mode, tipoLabel, onClose, setTitle, setTopLeftBack]);
 
   const filtered = useMemo(() => {
+    const sorted = [...platos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     const q = query.trim().toLowerCase();
-    if (!q) return platos;
-    return platos.filter((p) => p.nombre.toLowerCase().includes(q));
+    if (!q) return sorted;
+    return sorted.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [platos, query]);
 
   function addTag() {
