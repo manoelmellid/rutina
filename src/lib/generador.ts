@@ -68,8 +68,24 @@ export function describirAlcance(prefs: Preferencias, slots: SlotObjetivo[]): st
     : `del ${rango}`;
 }
 
-function pickRandom<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)];
+/**
+ * Sesgo suave, no un filtro: cada candidato pesa `1 + PESO_DESPENSA` si usa algo de la despensa,
+ * `+PESO_URGENTE` más si además caduca pronto — así todo sigue pudiendo salir, pero lo que
+ * conviene usar sale con más frecuencia. `PESO_URGENTE` pesa más que `PESO_DESPENSA` (evitar
+ * desperdicio pesa más que "ya lo tengo"). 2026-09-15: sustituye al filtro duro anterior (dejaba
+ * fuera el 100% de lo que no conectaba con la despensa — demasiado agresivo, ver CLAUDE.md).
+ */
+const PESO_DESPENSA = 2;
+const PESO_URGENTE = 5;
+
+function pickWeighted<T>(items: T[], pesos: number[], rng: () => number): T {
+  const total = pesos.reduce((a, b) => a + b, 0);
+  let r = rng() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= pesos[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
 }
 
 /** Fisher–Yates in place, con `rng` inyectable. */
@@ -125,11 +141,11 @@ function crearElegidor(input: GeneradorInput, usadosEstaTanda: Set<string>) {
     ];
     const pool = escalones.find((e) => e.length > 0) ?? base;
 
-    // Prioridad: lo que caduca pronto > lo que ya hay en la despensa > el pool tal cual.
-    const conUrgente = pool.filter(usaPerecederoUrgente);
-    const conDespensa = pool.filter(usaDespensa);
-    const candidatos = conUrgente.length > 0 ? conUrgente : conDespensa.length > 0 ? conDespensa : pool;
-    return pickRandom(candidatos, rng);
+    // Sesgo suave (ver PESO_DESPENSA/PESO_URGENTE): más probable, nunca excluyente.
+    const pesos = pool.map(
+      (id) => 1 + (usaDespensa(id) ? PESO_DESPENSA : 0) + (usaPerecederoUrgente(id) ? PESO_URGENTE : 0),
+    );
+    return pickWeighted(pool, pesos, rng);
   }
 
   return { elegir, usaPerecederoUrgente };
