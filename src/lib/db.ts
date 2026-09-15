@@ -385,10 +385,21 @@ export async function addToDespensa(
 }
 
 /**
- * Resta `cantidad` de la despensa de un ingrediente para reflejar que se ha cocinado. Tira
- * primero del lote "abierto"; si no alcanza para esta consumición, tira del "sin abrir" — y ese
- * paquete pasa entero a "abierto" (no se abre media unidad, igual que en Compra/F4); si ya
- * alcanzaba con lo abierto, el "sin abrir" ni se toca.
+ * Resta `cantidad` de la despensa de un ingrediente para reflejar que se ha cocinado.
+ *
+ * Dos comportamientos distintos según `Ingrediente.unidad`:
+ * - **`g`/`ml`** (paquete continuo — harina, leche...): tira primero del lote "abierto"; si no
+ *   alcanza, tira del "sin abrir" y ESE PAQUETE ENTERO pasa a "abierto" (no se abre media unidad,
+ *   igual que en Compra/F4) — tiene sentido porque es un único recipiente físico: en cuanto se
+ *   toca, todo lo que queda dentro está expuesto igual, use lo que use la receta.
+ * - **`ud`** (unidades discretas — latas, huevos, cebollas sueltas...): cada unidad es su propio
+ *   paquete ya sellado, así que consumir 1 de 3 NO debería marcar las otras 2 como "abiertas" —
+ *   solo se resta la cantidad exacta usada del "sin abrir", sin tocar el resto. El déficit (si no
+ *   hay suficiente registrado) se sigue guardando en la fila "abierta" en negativo, reutilizando
+ *   el mismo tratamiento visual de "debe X" que ya existe — no porque haya nada "abierto" de
+ *   verdad, sino para no duplicar esa lógica de display. 2026-09-15, corrigiendo un bug real
+ *   encontrado por el usuario: antes cualquier consumo marcaba TODO el "sin abrir" restante como
+ *   abierto hoy, aunque solo se hubiera tocado una unidad.
  *
  * Puede dejar la cantidad en **negativo**: significa que se ha cocinado más de lo que la despensa
  * tenía registrado (un plato usó un ingrediente sin que estuviera bien anotado). No es un error —
@@ -398,19 +409,41 @@ export async function addToDespensa(
  */
 export async function consumirDeDespensa(ingredienteId: string, cantidad: number): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction('despensa', 'readwrite');
+  const tx = db.transaction(['despensa', 'ingredientes'], 'readwrite');
   const store = tx.objectStore('despensa');
+  const ingrediente = await tx.objectStore('ingredientes').get(ingredienteId);
   const entries = await store.index('by-ingrediente').getAll(ingredienteId);
   const abierto = entries.find((e) => e.abiertoEl !== null);
   const sinAbrir = entries.find((e) => e.abiertoEl === null);
 
   let cantidadAbierto = abierto?.cantidad ?? 0;
 
-  if (sinAbrir && cantidadAbierto < cantidad) {
-    cantidadAbierto += sinAbrir.cantidad;
-    await store.delete(sinAbrir.id);
+  if (ingrediente?.unidad === 'ud') {
+    // Unidades discretas: tira primero de lo ya "abierto" (p. ej. algo que el usuario marcó a
+    // mano), y de "sin abrir" solo resta la cantidad exacta que hace falta — nunca convierte el
+    // resto en "abierto".
+    let porCubrir = cantidad;
+    if (cantidadAbierto > 0) {
+      const usarAbierto = Math.min(porCubrir, cantidadAbierto);
+      cantidadAbierto -= usarAbierto;
+      porCubrir -= usarAbierto;
+    }
+    if (porCubrir > 0 && sinAbrir) {
+      const usar = Math.min(porCubrir, sinAbrir.cantidad);
+      const restante = sinAbrir.cantidad - usar;
+      if (restante === 0) await store.delete(sinAbrir.id);
+      else await store.put({ ...sinAbrir, cantidad: restante });
+      porCubrir -= usar;
+    }
+    cantidadAbierto -= porCubrir; // déficit si no había suficiente en ningún sitio
+  } else {
+    // Paquete continuo: comportamiento original — abrir el "sin abrir" entero si hace falta.
+    if (sinAbrir && cantidadAbierto < cantidad) {
+      cantidadAbierto += sinAbrir.cantidad;
+      await store.delete(sinAbrir.id);
+    }
+    cantidadAbierto -= cantidad;
   }
-  cantidadAbierto -= cantidad;
 
   if (abierto) {
     if (cantidadAbierto === 0) await store.delete(abierto.id);
