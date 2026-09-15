@@ -82,4 +82,5 @@
 
 .gearLabelHidden {
   visibility: hidden;
+  width: 0;
 }
