@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import styles from './CompraItemRow.module.css';
 
 interface CompraItemRowProps {
@@ -10,17 +11,14 @@ interface CompraItemRowProps {
   onDelete: () => void;
 }
 
-export function CompraItemRow({
-  nombre,
-  comprado,
-  cantidadLabel,
-  origenLabel,
-  avisoObsoleto,
-  onToggle,
-  onDelete,
-}: CompraItemRowProps) {
+// forwardRef (en vez de envolver en un <div> extra desde CompraScreen) para que .row siga siendo
+// hijo DIRECTO de .group -- el CSS de .row:first-child depende de eso, un wrapper lo rompería.
+export const CompraItemRow = forwardRef<HTMLDivElement, CompraItemRowProps>(function CompraItemRow(
+  { nombre, comprado, cantidadLabel, origenLabel, avisoObsoleto, onToggle, onDelete },
+  ref,
+) {
   return (
-    <div className={styles.row}>
+    <div className={styles.row} ref={ref}>
       <button
         type="button"
         className={`${styles.checkbox} ${comprado ? styles.checkboxChecked : ''}`}
@@ -42,4 +40,4 @@ export function CompraItemRow({
       </button>
     </div>
   );
-}
+});

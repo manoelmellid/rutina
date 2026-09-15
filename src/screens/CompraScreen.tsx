@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import styles from './CompraScreen.module.css';
 import { CompraItemRow } from '../features/compra/CompraItemRow';
@@ -33,6 +33,39 @@ export function CompraScreen() {
   const [confirmingFinish, setConfirmingFinish] = useState(false);
   const { setTopRightAction } = useOutletContext<LayoutContext>();
   const navigate = useNavigate();
+  // FLIP para el reordenado (pendientes primero, comprados al final): sin esto, marcar un
+  // artículo lo salta al fondo de golpe, desplazando todo lo de debajo justo mientras se intenta
+  // llegar al botón de "Compra finalizada" -- se siente como si el scroll estuviera roto (ver
+  // CLAUDE.md). Con FLIP se desliza con una transición corta en vez de saltar, pero el artículo
+  // SÍ se sigue moviendo al fondo al instante, como antes -- es solo el "cómo", no el "cuándo".
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const prevRectsRef = useRef<Map<string, DOMRect> | null>(null);
+
+  useLayoutEffect(() => {
+    const prevRects = prevRectsRef.current;
+    if (!prevRects) return;
+    prevRectsRef.current = null;
+    rowRefs.current.forEach((el, id) => {
+      const prev = prevRects.get(id);
+      if (!prev) return;
+      const next = el.getBoundingClientRect();
+      const deltaY = prev.top - next.top;
+      if (Math.abs(deltaY) < 1) return;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${deltaY}px)`;
+      el.getBoundingClientRect(); // fuerza el reflow antes de animar, si no el navegador junta los dos cambios
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 220ms ease';
+        el.style.transform = '';
+      });
+    });
+  });
+
+  function capturarPosiciones() {
+    const rects = new Map<string, DOMRect>();
+    rowRefs.current.forEach((el, id) => rects.set(id, el.getBoundingClientRect()));
+    prevRectsRef.current = rects;
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -55,11 +88,7 @@ export function CompraScreen() {
         ...resultado.aGuardar.map((i) => saveItemCompra(i)),
         ...resultado.aBorrar.map((id) => deleteItemCompra(id)),
       ]);
-      // Pendientes primero, comprados al final -- pero solo UNA VEZ al cargar. Si se recalculara
-      // en cada render (como antes), marcar un artículo lo saltaba al fondo de la lista al
-      // instante, desplazando todo lo de debajo justo mientras intentas llegar al botón de
-      // "Compra finalizada" -- de ahí la sensación de que el scroll "no funciona bien".
-      setItems([...resultado.items].sort((a, b) => Number(a.comprado) - Number(b.comprado)));
+      setItems(resultado.items);
       setComidas(comidasVentana);
       setPlatos(platosAll);
       setIngredientes(ingredientesAll);
@@ -95,16 +124,12 @@ export function CompraScreen() {
     if (!n) return;
     const item: ItemCompra = { id: newId(), nombre: n, cantidad: 0, comprado: false, origenComidaIds: [] };
     await saveItemCompra(item);
-    // Insertar antes del primer comprado (si hay), no siempre al final -- para no colarlo debajo
-    // del bloque ya marcado y romper el orden pendientes-primero.
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.comprado);
-      return idx === -1 ? [...prev, item] : [...prev.slice(0, idx), item, ...prev.slice(idx)];
-    });
+    setItems((prev) => [...prev, item]);
     setNombre('');
   }
 
   async function handleToggle(item: ItemCompra) {
+    capturarPosiciones();
     const updated = { ...item, comprado: !item.comprado };
     await saveItemCompra(updated);
     setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
@@ -130,6 +155,7 @@ export function CompraScreen() {
   if (loading) return null;
 
   const comprados = items.filter((i) => i.comprado);
+  const ordenados = [...items].sort((a, b) => Number(a.comprado) - Number(b.comprado));
 
   return (
     <div>
@@ -148,11 +174,11 @@ export function CompraScreen() {
         </button>
       </div>
 
-      {items.length === 0 ? (
+      {ordenados.length === 0 ? (
         <p className={styles.emptyHint}>Tu lista está vacía. Añade algo arriba.</p>
       ) : (
         <div className={styles.group}>
-          {items.map((item) => {
+          {ordenados.map((item) => {
             const ing = item.ingredienteId ? ingredienteById.get(item.ingredienteId) : undefined;
             const nombreMostrado = item.ingredienteId ? (ing?.nombre ?? '(eliminado)') : item.nombre;
             const cantidadLabel =
@@ -166,6 +192,10 @@ export function CompraScreen() {
             return (
               <CompraItemRow
                 key={item.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(item.id, el);
+                  else rowRefs.current.delete(item.id);
+                }}
                 nombre={nombreMostrado}
                 comprado={item.comprado}
                 cantidadLabel={cantidadLabel}
