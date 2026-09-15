@@ -55,7 +55,11 @@ export function CompraScreen() {
         ...resultado.aGuardar.map((i) => saveItemCompra(i)),
         ...resultado.aBorrar.map((id) => deleteItemCompra(id)),
       ]);
-      setItems(resultado.items);
+      // Pendientes primero, comprados al final -- pero solo UNA VEZ al cargar. Si se recalculara
+      // en cada render (como antes), marcar un artículo lo saltaba al fondo de la lista al
+      // instante, desplazando todo lo de debajo justo mientras intentas llegar al botón de
+      // "Compra finalizada" -- de ahí la sensación de que el scroll "no funciona bien".
+      setItems([...resultado.items].sort((a, b) => Number(a.comprado) - Number(b.comprado)));
       setComidas(comidasVentana);
       setPlatos(platosAll);
       setIngredientes(ingredientesAll);
@@ -91,7 +95,12 @@ export function CompraScreen() {
     if (!n) return;
     const item: ItemCompra = { id: newId(), nombre: n, cantidad: 0, comprado: false, origenComidaIds: [] };
     await saveItemCompra(item);
-    setItems((prev) => [...prev, item]);
+    // Insertar antes del primer comprado (si hay), no siempre al final -- para no colarlo debajo
+    // del bloque ya marcado y romper el orden pendientes-primero.
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.comprado);
+      return idx === -1 ? [...prev, item] : [...prev.slice(0, idx), item, ...prev.slice(idx)];
+    });
     setNombre('');
   }
 
@@ -120,9 +129,7 @@ export function CompraScreen() {
 
   if (loading) return null;
 
-  const pendientes = items.filter((i) => !i.comprado);
   const comprados = items.filter((i) => i.comprado);
-  const ordenados = [...pendientes, ...comprados];
 
   return (
     <div>
@@ -141,11 +148,11 @@ export function CompraScreen() {
         </button>
       </div>
 
-      {ordenados.length === 0 ? (
+      {items.length === 0 ? (
         <p className={styles.emptyHint}>Tu lista está vacía. Añade algo arriba.</p>
       ) : (
         <div className={styles.group}>
-          {ordenados.map((item) => {
+          {items.map((item) => {
             const ing = item.ingredienteId ? ingredienteById.get(item.ingredienteId) : undefined;
             const nombreMostrado = item.ingredienteId ? (ing?.nombre ?? '(eliminado)') : item.nombre;
             const cantidadLabel =
