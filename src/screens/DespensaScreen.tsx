@@ -15,7 +15,7 @@ import {
   ingredientesEnPlan,
   resumenLotes,
 } from '../lib/despensa';
-import { getWeekDays, toISODate } from '../lib/week';
+import { slotsObjetivo } from '../lib/generador';
 import {
   addToDespensa,
   deleteDespensaEntry,
@@ -23,6 +23,7 @@ import {
   getAllPlatos,
   getComidasEnRango,
   getDespensa,
+  getPreferencias,
   saveDespensaEntry,
   type Comida,
   type DespensaEntry,
@@ -44,13 +45,19 @@ export function DespensaScreen() {
   const { close } = useSubViewHistory(view.mode !== 'list', () => setView({ mode: 'list' }));
 
   async function refetch() {
-    const days = getWeekDays(0);
-    const [e, i, p, c] = await Promise.all([
+    const [e, i, p, prefs] = await Promise.all([
       getDespensa(),
       getAllIngredientes(),
       getAllPlatos(),
-      getComidasEnRango(toISODate(days[0]), toISODate(days[6])),
+      getPreferencias(),
     ]);
+    // "En el plan" usa el MISMO rango que el generador (Ajustes → Generador), para que ambos
+    // vayan sincronizados — y de paso, como slotsObjetivo siempre empieza en hoy, ya excluye los
+    // días pasados de la semana en curso sin necesidad de filtrar aparte.
+    const slots = slotsObjetivo(prefs, new Date());
+    const fechas = [...new Set(slots.map((s) => s.fecha))].sort();
+    const c =
+      fechas.length > 0 ? await getComidasEnRango(fechas[0], fechas[fechas.length - 1]) : [];
     setEntries(e);
     setIngredientes(i);
     setPlatos(p);
