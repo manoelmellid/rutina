@@ -5,6 +5,7 @@ import sharedStyles from '../features/comidas/AsignarComidaPanel.module.css';
 import { IconPlus } from '../components/icons';
 import type { LayoutContext } from '../lib/layoutContext';
 import { useSubViewHistory } from '../lib/useSubViewHistory';
+import { resincronizarRecetaHoy } from '../lib/consumo';
 import {
   deletePlato,
   getAllCategorias,
@@ -121,6 +122,9 @@ export function PlatosScreen() {
 
   async function handleUpdatePlato(plato: Plato) {
     await savePlato(plato);
+    // Si el plato tiene alguna comida de hoy ya "consumida" (descuento por fecha, no por hora —
+    // ver CLAUDE.md), reajusta la despensa a la receta nueva. Acotado a hoy a propósito.
+    await resincronizarRecetaHoy(plato, new Date());
     setPlatos((prev) =>
       prev.some((p) => p.id === plato.id) ? prev.map((p) => (p.id === plato.id ? plato : p)) : [...prev, plato],
     );

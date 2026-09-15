@@ -61,6 +61,36 @@ export async function sincronizarConsumoComida(
   return decision.comidaActualizada;
 }
 
+function mismosIngredientes(a: PlatoIngrediente[], b: PlatoIngrediente[]): boolean {
+  if (a.length !== b.length) return false;
+  const mapa = new Map(a.map((pi) => [pi.ingredienteId, pi.cantidad]));
+  return b.every((pi) => mapa.get(pi.ingredienteId) === pi.cantidad);
+}
+
+/**
+ * Si `plato` tiene alguna comida de HOY ya consumida (`consumoAplicado`) con una receta distinta
+ * a la actual, la reajusta: revierte lo que se había restado con la receta vieja y aplica la
+ * nueva. Se llama al guardar un plato — sin esto, editar la receta de un plato ya "cocinado" hoy
+ * (recuerda: el descuento es por fecha, no por hora — a las 12:55 la comida de hoy ya puede estar
+ * marcada como consumida aunque aún no la hayas hecho de verdad) no se refleja ni en la despensa ni
+ * en la lista de la compra hasta el día siguiente.
+ *
+ * Deliberadamente acotado a HOY, no al mismo barrido de `VENTANA_DIAS` días que usa
+ * `sincronizarConsumoPendiente` — decisión explícita del usuario 2026-09-15: una comida de hace
+ * semanas ya es historial, no tiene sentido reescribirla solo porque hoy cambies la receta.
+ */
+export async function resincronizarRecetaHoy(plato: Plato, hoy: Date): Promise<void> {
+  const hoyISO = toISODate(hoy);
+  const comidasHoy = await getComidasEnRango(hoyISO, hoyISO);
+  for (const c of comidasHoy) {
+    if (c.platoId !== plato.id || c.consumoAplicado === null) continue;
+    if (mismosIngredientes(c.consumoAplicado.ingredientes, plato.ingredientes)) continue;
+    for (const pi of c.consumoAplicado.ingredientes) await addToDespensa(pi.ingredienteId, pi.cantidad, true);
+    for (const pi of plato.ingredientes) await consumirDeDespensa(pi.ingredienteId, pi.cantidad);
+    await setComida({ ...c, consumoAplicado: { platoId: plato.id, ingredientes: plato.ingredientes } });
+  }
+}
+
 const VENTANA_DIAS = 60; // cuánto para atrás se revisa en el barrido de arranque
 
 let enCurso: Promise<void> | null = null;
