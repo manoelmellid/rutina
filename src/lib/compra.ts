@@ -35,7 +35,13 @@ function origenCambio(a: string[], b: string[]): boolean {
  *
  * Reglas:
  * - necesario(ingrediente) = suma de `PlatoIngrediente.cantidad` de los platos asignados en
- *   `comidas` que lo usan; déficit = necesario − disponible en despensa.
+ *   `comidas` que lo usan **y que aún no se hayan consumido** (`consumoAplicado === null`) —
+ *   una comida ya consumida ya restó su ingrediente de la despensa (F5), así que su necesidad ya
+ *   está reflejada ahí (como saldo bajo, o como déficit en negativo); sumarla también aquí la
+ *   contaría dos veces. 2026-09-15, bug real: la comida de HOY (la única fecha de la ventana que
+ *   puede estar ya consumida y a la vez seguir "pendiente" según el rango) se sumaba dos veces —
+ *   ej. una pizza ya cocinada hoy pedía comprar 2 masas de pizza en vez de 1.
+ *   Déficit = necesario − disponible en despensa.
  * - déficit <= 0 → el ingrediente no entra en la lista (la despensa ya lo cubre), salvo que ya
  *   hubiera un artículo comprado para él, que se conserva con `origenComidaIds: []` (aviso "ya no
  *   hace falta" en la UI).
@@ -50,7 +56,7 @@ export function reconciliarListaCompra(input: ReconciliarInput): ReconciliarResu
 
   const necesario = new Map<string, { cantidad: number; comidaIds: Set<string> }>();
   for (const c of input.comidas) {
-    if (!c.platoId) continue;
+    if (!c.platoId || c.consumoAplicado !== null) continue;
     const plato = platoById.get(c.platoId);
     if (!plato) continue;
     for (const pi of plato.ingredientes) {
@@ -90,6 +96,12 @@ export function reconciliarListaCompra(input: ReconciliarInput): ReconciliarResu
         const actualizado = { ...existente, origenComidaIds: [] };
         items.push(actualizado);
         if (origenCambio(existente.origenComidaIds, [])) aGuardar.push(actualizado);
+      } else if (existente) {
+        // Sigue apareciendo en `necesario` pero ya no en déficit (p. ej. la despensa lo cubre
+        // de sobra tras quitar el doble conteo de arriba) — sin esto, la fila existente se queda
+        // huérfana en el store para siempre (invisible, `vistos` la protege de la limpieza de
+        // más abajo).
+        aBorrar.push(existente.id);
       }
       continue; // cubierto por la despensa: no entra a la lista
     }
