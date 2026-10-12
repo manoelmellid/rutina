@@ -4,6 +4,7 @@ import {
   type Categoria,
   type Comida,
   type DespensaEntry,
+  type GymDoc,
   type Ingrediente,
   type ItemCompra,
   type Plato,
@@ -20,7 +21,7 @@ import {
 } from './migrations';
 
 interface BackupData {
-  formatVersion: 1 | 2 | 3;
+  formatVersion: 1 | 2 | 3 | 4;
   exportedAt: string;
   platos: Plato[];
   comidas: Comida[];
@@ -29,12 +30,13 @@ interface BackupData {
   categorias?: Categoria[];
   despensa?: DespensaEntry[];
   preferencias?: Preferencias | null;
+  gymDoc?: GymDoc | null;
 }
 
 export async function exportBackup(): Promise<void> {
   const db = await getDB();
   const data: BackupData = {
-    formatVersion: 3,
+    formatVersion: 4,
     exportedAt: new Date().toISOString(),
     platos: await db.getAll('platos'),
     comidas: await db.getAll('comidas'),
@@ -43,6 +45,7 @@ export async function exportBackup(): Promise<void> {
     categorias: await db.getAll('categorias'),
     despensa: await db.getAll('despensa'),
     preferencias: (await db.get('preferencias', 'main')) ?? null,
+    gymDoc: (await db.get('gymDoc', 'main')) ?? null,
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -70,13 +73,27 @@ export async function importBackup(file: File, mode: ImportMode = 'reemplazar'):
   const text = await file.text();
   const data = JSON.parse(text) as Partial<BackupData>;
 
-  if (data.formatVersion !== 1 && data.formatVersion !== 2 && data.formatVersion !== 3) {
+  if (
+    data.formatVersion !== 1 &&
+    data.formatVersion !== 2 &&
+    data.formatVersion !== 3 &&
+    data.formatVersion !== 4
+  ) {
     throw new Error('Formato de backup no reconocido');
   }
 
   const db = await getDB();
   const tx = db.transaction(
-    ['platos', 'comidas', 'listaCompra', 'ingredientes', 'categorias', 'despensa', 'preferencias'],
+    [
+      'platos',
+      'comidas',
+      'listaCompra',
+      'ingredientes',
+      'categorias',
+      'despensa',
+      'preferencias',
+      'gymDoc',
+    ],
     'readwrite',
   );
 
@@ -89,6 +106,7 @@ export async function importBackup(file: File, mode: ImportMode = 'reemplazar'):
       tx.objectStore('categorias').clear(),
       tx.objectStore('despensa').clear(),
       tx.objectStore('preferencias').clear(),
+      tx.objectStore('gymDoc').clear(),
     ]);
   }
 
@@ -124,6 +142,10 @@ export async function importBackup(file: File, mode: ImportMode = 'reemplazar'):
       ...data.preferencias,
       id: 'main',
     });
+  }
+
+  if (data.gymDoc) {
+    await tx.objectStore('gymDoc').put({ ...data.gymDoc, id: 'main' });
   }
 
   await tx.done;

@@ -1,0 +1,171 @@
+/* Estilo inspirado en la vista previa de markdown de VS Code. Los selectores de elemento
+   descendientes son válidos en CSS Modules: solo se scopea `.markdown`. */
+.markdown {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 24px 0 16px;
+}
+
+.markdown h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown h3 {
+  font-size: 1.25em;
+}
+
+.markdown h4 {
+  font-size: 1em;
+}
+
+.markdown h5 {
+  font-size: 0.875em;
+}
+
+.markdown h6 {
+  font-size: 0.85em;
+  color: var(--color-text-secondary);
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre,
+.markdown table {
+  margin: 0 0 16px;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 2em;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin: 0;
+}
+
+.markdown li + li {
+  margin-top: 0.25em;
+}
+
+/* Tareas `- [ ]` / `- [x]`: sin viñeta, el checkbox ya hace de marcador. */
+.markdown li:has(> input[type='checkbox']) {
+  list-style: none;
+}
+
+.markdown li > input[type='checkbox'] {
+  margin: 0 0.5em 0 -1.4em;
+  vertical-align: middle;
+}
+
+.markdown a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+.markdown code {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.markdown pre {
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.12);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+  font-size: 0.85em;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+
+.markdown blockquote {
+  padding: 0 16px;
+  border-left: 4px solid rgba(127, 127, 127, 0.4);
+  color: var(--color-text-secondary);
+}
+
+.markdown blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  /* Las celdas rompen por palabras (como VS Code); si no caben, la tabla hace scroll. */
+  overflow-wrap: normal;
+}
+
+.markdown th,
+.markdown td {
+  padding: 6px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+}
+
+.markdown th {
+  font-weight: 600;
+}
+
+.markdown hr {
+  height: 1px;
+  border: 0;
+  margin: 24px 0;
+  background: var(--color-border);
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown del {
+  color: var(--color-text-secondary);
+}

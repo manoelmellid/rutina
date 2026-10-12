@@ -98,6 +98,14 @@ export interface Preferencias {
   alcanceDiasAdelante: number; // used when alcanceGenerador === 'diasAdelante'
 }
 
+/** Único documento markdown abierto en Gym (fila única 'main'). */
+export interface GymDoc {
+  id: 'main';
+  nombre: string; // nombre del archivo tal cual se subió, con extensión
+  contenido: string;
+  subidoEn: string; // ISO
+}
+
 interface RutinaDB extends DBSchema {
   platos: {
     key: string;
@@ -129,10 +137,14 @@ interface RutinaDB extends DBSchema {
     key: string;
     value: Preferencias;
   };
+  gymDoc: {
+    key: string;
+    value: GymDoc;
+  };
 }
 
 const DB_NAME = 'rutina-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<RutinaDB>> | null = null;
 
@@ -166,6 +178,11 @@ export function getDB(): Promise<IDBPDatabase<RutinaDB>> {
         }
         if (!db.objectStoreNames.contains('preferencias')) {
           db.createObjectStore('preferencias', { keyPath: 'id' });
+        }
+
+        // v4 store (aditivo, sin backfill: no hay datos previos)
+        if (!db.objectStoreNames.contains('gymDoc')) {
+          db.createObjectStore('gymDoc', { keyPath: 'id' });
         }
 
         // v3 field backfill on existing rows (skips fresh installs, where oldVersion === 0)
@@ -305,6 +322,25 @@ export async function getPreferencias(): Promise<Preferencias> {
 export async function setPreferencias(p: Preferencias): Promise<void> {
   const db = await getDB();
   await db.put('preferencias', { ...PREFERENCIAS_DEFAULT, ...p, id: 'main' });
+}
+
+// ---------------------------------------------------------------------------
+// Gym: documento markdown abierto (fila única 'main')
+// ---------------------------------------------------------------------------
+
+export async function getGymDoc(): Promise<GymDoc | null> {
+  const db = await getDB();
+  return (await db.get('gymDoc', 'main')) ?? null;
+}
+
+export async function setGymDoc(doc: Omit<GymDoc, 'id'>): Promise<void> {
+  const db = await getDB();
+  await db.put('gymDoc', { ...doc, id: 'main' });
+}
+
+export async function clearGymDoc(): Promise<void> {
+  const db = await getDB();
+  await db.delete('gymDoc', 'main');
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +563,7 @@ export async function clearAllData(): Promise<void> {
     db.clear('despensa'),
     db.clear('preferencias'),
     db.clear('categorias'),
+    db.clear('gymDoc'),
   ]);
   // Re-seed the category catalog — losing it would break PlatoDetail/Ajustes until reload.
   const tx = db.transaction('categorias', 'readwrite');
